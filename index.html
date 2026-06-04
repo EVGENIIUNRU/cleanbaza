@@ -4,16 +4,18 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Контроль чистоты клуба</title>
-    <link rel="stylesheet" href="styles.css?v=4" />
+    <link rel="stylesheet" href="styles.css?v=5" />
   </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar" aria-label="Навигация">
         <div class="brand">
-          <div class="brand-mark">К</div>
+          <div class="brand-mark">
+            <img src="assets/baza-brand.jpg" alt="BAZA by IGNATIEV" />
+          </div>
           <div>
-            <div class="brand-title">Контроль чистоты</div>
-            <div class="brand-subtitle">Компьютерный клуб</div>
+            <div class="brand-title">BAZA Clean Ops</div>
+            <div class="brand-subtitle">Смены и чистота</div>
           </div>
         </div>
 
@@ -24,7 +26,13 @@
           <a class="nav-item" href="#report">Отчет</a>
         </nav>
 
-        <div class="sidebar-panel">
+        <div class="sidebar-panel control-panel">
+          <div class="panel-label">Контур контроля</div>
+          <div class="panel-value">Удаленный статус смены</div>
+          <div class="panel-note">День и ночь, задачи, отметки и отчетность в одном рабочем экране.</div>
+        </div>
+
+        <div class="sidebar-panel source-panel">
           <div class="panel-label">Источник задач</div>
           <div id="sourceLabel" class="panel-value">Встроенный шаблон</div>
           <div class="panel-note">Шаблон можно заменить загрузкой Excel или CSV.</div>
@@ -33,19 +41,28 @@
 
       <main class="main">
         <header class="topbar" id="shift">
-          <div>
-            <h1>Смена чистоты</h1>
-            <p>Дневная 10:00-22:00, ночная 22:00-10:00. Ночная относится к дате начала в 22:00.</p>
+          <div class="topbar-copy">
+            <h1>Операционный контроль чистоты</h1>
+            <p>Сменные задачи BAZA: столы, ПК, ковры, санузел и гостевые зоны в одном живом чек-листе.</p>
           </div>
 
-          <div class="shift-controls">
-            <label class="field">
-              <span>Дата смены</span>
-              <input id="shiftDate" type="date" />
-            </label>
-            <div class="segmented" role="group" aria-label="Тип смены">
-              <button id="dayShift" class="segment" type="button" data-shift="Дневная">День</button>
-              <button id="nightShift" class="segment" type="button" data-shift="Ночная">Ночь</button>
+          <div class="topbar-actions">
+            <div class="shift-controls">
+              <label class="field">
+                <span>Дата смены</span>
+                <input id="shiftDate" type="date" />
+              </label>
+              <div class="segmented" role="group" aria-label="Тип смены">
+                <button id="dayShift" class="segment" type="button" data-shift="Дневная">День</button>
+                <button id="nightShift" class="segment" type="button" data-shift="Ночная">Ночь</button>
+              </div>
+            </div>
+            <div class="shift-badge" aria-label="Статус смены">
+              <span class="status-dot"></span>
+              <div>
+                <strong>Смена онлайн</strong>
+                <small>Drive готов</small>
+              </div>
             </div>
           </div>
         </header>
@@ -153,7 +170,7 @@
             </section>
 
             <section class="inspector-card" id="sync">
-              <h2>Google Drive</h2>
+              <h2>Синхронизация с Google Drive</h2>
               <p class="muted">Задачи можно вести в Google Sheets. Для записи отметок вставьте Web app URL из Apps Script.</p>
               <label class="field">
                 <span>Apps Script URL</span>
@@ -170,7 +187,7 @@
 
         <section class="import-panel" id="report">
           <div>
-            <h2>Загрузка задач</h2>
+            <h2>Загрузка регламента</h2>
             <p>Загрузите Excel с листом “Задачи” или CSV с такими же колонками. Сайт разнесет задачи по зонам, сменам и периодичности.</p>
           </div>
           <div class="import-actions">
@@ -184,6 +201,6 @@
       </main>
     </div>
 
-    <script type="module" src="app.js?v=4"></script>
+    <script type="module" src="app.js?v=5"></script>
   </body>
 </html>
