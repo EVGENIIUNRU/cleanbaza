@@ -13,6 +13,31 @@
 
 Сайт работает без сервера. Данные хранятся в браузере, пока не подключен Google Apps Script.
 
+## Windows-приложение для админ-ПК
+
+Репозиторий также собирает desktop-приложение `BAZA Clean Ops` для Windows. Внутри используется тот же интерфейс, `app.js`, Excel/CSV-импорт и синхронизация с Google Apps Script, поэтому структура задач и логика отметок совпадают с сайтом.
+
+### Скачать готовую сборку
+
+1. Откройте GitHub-репозиторий `cleanbaza`.
+2. Перейдите в `Actions`.
+3. Откройте последний успешный запуск `Build Windows desktop app`.
+4. В блоке `Artifacts` скачайте `BAZA-Clean-Ops-Windows`.
+5. Распакуйте архив и запустите:
+   - `BAZA Clean Ops-Setup-1.0.0-x64.exe` - установка на ПК с ярлыком.
+   - `BAZA Clean Ops-Portable-1.0.0-x64.exe` - запуск без установки.
+
+Если Windows SmartScreen предупредит о неизвестном издателе, это ожидаемо для неподписанной сборки из GitHub. Для постоянного распространения можно позже добавить code signing сертификат.
+
+### Собрать вручную на Windows
+
+```bash
+npm install
+npm run build:win
+```
+
+Готовые `.exe` появятся в папке `dist/`.
+
 ## Файлы
 
 - `index.html` - интерфейс сайта.
@@ -21,6 +46,8 @@
 - `shablon_chistoty_kompyuternogo_kluba.xlsx` - Excel-шаблон задач.
 - `apps-script.gs` - код для записи отметок в Google Sheets.
 - `scripts/build_cleanliness_workbook.mjs` - генератор Excel-шаблона.
+- `electron/main.cjs` - оболочка Windows-приложения.
+- `.github/workflows/windows-app.yml` - сборка `.exe` через GitHub Actions.
 
 ## Формат листа `Задачи`
 
