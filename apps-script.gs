@@ -17,22 +17,24 @@ const LOG_HEADERS = [
 ];
 
 function doGet(e) {
-  const action = String(e.parameter.action || 'state');
+  const params = e && e.parameter ? e.parameter : {};
+  const action = String(params.action || 'state');
+  let data;
   if (action === 'ping') {
-    return json_({ ok: true, time: new Date().toISOString() });
+    data = { ok: true, time: new Date().toISOString() };
+  } else if (action === 'tasks') {
+    data = { ok: true, tasks: readTable_(TASK_SHEET) };
+  } else if (action === 'log') {
+    data = { ok: true, log: readTable_(LOG_SHEET) };
+  } else {
+    data = {
+      ok: true,
+      tasks: readTable_(TASK_SHEET),
+      log: readTable_(LOG_SHEET),
+      time: new Date().toISOString(),
+    };
   }
-  if (action === 'tasks') {
-    return json_({ ok: true, tasks: readTable_(TASK_SHEET) });
-  }
-  if (action === 'log') {
-    return json_({ ok: true, log: readTable_(LOG_SHEET) });
-  }
-  return json_({
-    ok: true,
-    tasks: readTable_(TASK_SHEET),
-    log: readTable_(LOG_SHEET),
-    time: new Date().toISOString(),
-  });
+  return json_(data, params.callback);
 }
 
 function doPost(e) {
@@ -111,8 +113,17 @@ function parseBody_(e) {
   }
 }
 
-function json_(data) {
+function json_(data, callback) {
+  const payload = JSON.stringify(data);
+  const callbackName = String(callback || '').trim();
+  if (callbackName) {
+    const validCallback = /^[A-Za-z_$][0-9A-Za-z_$]*(\.[A-Za-z_$][0-9A-Za-z_$]*)*$/.test(callbackName);
+    const body = validCallback ? `${callbackName}(${payload});` : '/* invalid callback */';
+    return ContentService
+      .createTextOutput(body)
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
   return ContentService
-    .createTextOutput(JSON.stringify(data))
+    .createTextOutput(payload)
     .setMimeType(ContentService.MimeType.JSON);
 }

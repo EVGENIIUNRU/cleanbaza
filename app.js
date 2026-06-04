@@ -1010,10 +1010,7 @@ async function syncNow() {
   }
   try {
     setSyncStatus("Запрашиваю задачи и отметки из Google Sheets...", "");
-    const url = withQuery(state.scriptUrl, { action: "state", t: Date.now() });
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Google Sheets ответил ${response.status}`);
-    const data = await response.json();
+    const data = await fetchAppsScriptState(state.scriptUrl);
     if (Array.isArray(data.tasks) && data.tasks.length) {
       state.tasks = data.tasks.map((task, index) => rowObjectToTask(task, index)).filter((task) => task.id && task.title);
       state.source = "Google Sheets";
@@ -1025,6 +1022,57 @@ async function syncNow() {
   } catch (error) {
     console.error(error);
     setSyncStatus(`${error.message}. Если таблица не опубликована, проверьте права Web app deployment.`, "error");
+  }
+}
+
+async function fetchAppsScriptState(scriptUrl) {
+  const url = withQuery(scriptUrl, { action: "state", t: Date.now() });
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Google Sheets ответил ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    if (!isAppsScriptUrl(scriptUrl)) throw error;
+    return requestJsonp(url);
+  }
+}
+
+function requestJsonp(url) {
+  return new Promise((resolve, reject) => {
+    const callback = `clubCleanlinessJsonp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Apps Script не ответил на запрос синхронизации"));
+    }, 15000);
+
+    window[callback] = (data) => {
+      cleanup();
+      resolve(data);
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Не удалось загрузить данные из Apps Script"));
+    };
+
+    script.src = withQuery(url, { callback });
+    document.head.appendChild(script);
+
+    function cleanup() {
+      window.clearTimeout(timer);
+      script.remove();
+      delete window[callback];
+    }
+  });
+}
+
+function isAppsScriptUrl(url) {
+  try {
+    const { hostname } = new URL(url);
+    return hostname === "script.google.com" || hostname.endsWith(".googleusercontent.com");
+  } catch {
+    return false;
   }
 }
 
