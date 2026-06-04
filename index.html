@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Контроль чистоты клуба</title>
+    <link rel="stylesheet" href="styles.css?v=4" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Навигация">
+        <div class="brand">
+          <div class="brand-mark">К</div>
+          <div>
+            <div class="brand-title">Контроль чистоты</div>
+            <div class="brand-subtitle">Компьютерный клуб</div>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <a class="nav-item active" href="#shift">Смена</a>
+          <a class="nav-item" href="#tasks">Задачи</a>
+          <a class="nav-item" href="#sync">Drive</a>
+          <a class="nav-item" href="#report">Отчет</a>
+        </nav>
+
+        <div class="sidebar-panel">
+          <div class="panel-label">Источник задач</div>
+          <div id="sourceLabel" class="panel-value">Встроенный шаблон</div>
+          <div class="panel-note">Шаблон можно заменить загрузкой Excel или CSV.</div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar" id="shift">
+          <div>
+            <h1>Смена чистоты</h1>
+            <p>Дневная 10:00-22:00, ночная 22:00-10:00. Ночная относится к дате начала в 22:00.</p>
+          </div>
+
+          <div class="shift-controls">
+            <label class="field">
+              <span>Дата смены</span>
+              <input id="shiftDate" type="date" />
+            </label>
+            <div class="segmented" role="group" aria-label="Тип смены">
+              <button id="dayShift" class="segment" type="button" data-shift="Дневная">День</button>
+              <button id="nightShift" class="segment" type="button" data-shift="Ночная">Ночь</button>
+            </div>
+          </div>
+        </header>
+
+        <section class="kpi-grid" aria-label="Показатели смены">
+          <article class="kpi">
+            <span class="kpi-label">Готово</span>
+            <strong id="doneKpi">0/0</strong>
+            <span id="progressKpi">0%</span>
+          </article>
+          <article class="kpi">
+            <span class="kpi-label">Проблемы</span>
+            <strong id="problemKpi">0</strong>
+            <span>требуют внимания</span>
+          </article>
+          <article class="kpi">
+            <span class="kpi-label">Просрочено</span>
+            <strong id="overdueKpi">0</strong>
+            <span>по времени</span>
+          </article>
+          <article class="kpi">
+            <span class="kpi-label">Следующая</span>
+            <strong id="nextTaskKpi">-</strong>
+            <span id="nextTaskTime">нет срока</span>
+          </article>
+        </section>
+
+        <section class="workspace">
+          <div class="task-area">
+            <section class="toolbar" id="tasks">
+              <div class="toolbar-left">
+                <label class="field search-field">
+                  <span>Поиск</span>
+                  <input id="searchInput" type="search" placeholder="Зона, задача, стандарт" />
+                </label>
+                <label class="field">
+                  <span>Зона</span>
+                  <select id="zoneFilter"></select>
+                </label>
+                <label class="check-filter">
+                  <input id="problemOnly" type="checkbox" />
+                  Только проблемы
+                </label>
+              </div>
+
+              <div class="toolbar-actions">
+                <button id="resetShift" class="ghost-button" type="button">Сбросить смену</button>
+                <button id="exportLog" class="primary-button" type="button">Скачать отчет CSV</button>
+              </div>
+            </section>
+
+            <section id="taskList" class="task-list" aria-live="polite"></section>
+          </div>
+
+          <aside class="inspector" aria-label="Детали задачи">
+            <section class="inspector-card">
+              <div class="inspector-header">
+                <span id="detailZone" class="zone-pill">Задача</span>
+                <span id="detailPriority" class="priority-pill">-</span>
+              </div>
+              <h2 id="detailTitle">Выберите задачу</h2>
+              <p id="detailDescription">Детали, стандарт выполнения и комментарий появятся здесь.</p>
+              <dl class="detail-grid">
+                <div>
+                  <dt>Периодичность</dt>
+                  <dd id="detailFrequency">-</dd>
+                </div>
+                <div>
+                  <dt>Срок</dt>
+                  <dd id="detailDue">-</dd>
+                </div>
+                <div>
+                  <dt>Подтверждение</dt>
+                  <dd id="detailEvidence">-</dd>
+                </div>
+                <div>
+                  <dt>Инвентарь</dt>
+                  <dd id="detailSupplies">-</dd>
+                </div>
+              </dl>
+              <div class="standard-box">
+                <span>Стандарт</span>
+                <p id="detailStandard">-</p>
+              </div>
+
+              <div class="completion-box">
+                <label class="field">
+                  <span>Сотрудник</span>
+                  <input id="employeeName" type="text" placeholder="Имя администратора" />
+                </label>
+                <label class="field">
+                  <span>Комментарий</span>
+                  <textarea id="taskNote" rows="4" placeholder="Что было сделано или что не так"></textarea>
+                </label>
+                <label class="field">
+                  <span>Фото/ссылка</span>
+                  <input id="evidenceUrl" type="url" placeholder="Ссылка на фото в Drive, если нужна" />
+                </label>
+                <div class="completion-actions">
+                  <button id="markDone" class="primary-button" type="button">Готово</button>
+                  <button id="markProblem" class="danger-button" type="button">Проблема</button>
+                  <button id="markNotRequired" class="ghost-button" type="button">Не требуется</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="inspector-card" id="sync">
+              <h2>Google Drive</h2>
+              <p class="muted">Задачи можно вести в Google Sheets. Для записи отметок вставьте Web app URL из Apps Script.</p>
+              <label class="field">
+                <span>Apps Script URL</span>
+                <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/..." />
+              </label>
+              <div class="sync-actions">
+                <button id="saveSync" class="ghost-button" type="button">Сохранить URL</button>
+                <button id="syncNow" class="primary-button" type="button">Синхронизировать</button>
+              </div>
+              <div id="syncStatus" class="sync-status">Синхронизация не подключена.</div>
+            </section>
+          </aside>
+        </section>
+
+        <section class="import-panel" id="report">
+          <div>
+            <h2>Загрузка задач</h2>
+            <p>Загрузите Excel с листом “Задачи” или CSV с такими же колонками. Сайт разнесет задачи по зонам, сменам и периодичности.</p>
+          </div>
+          <div class="import-actions">
+            <input id="fileInput" class="file-input" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+            <button id="loadBundledTemplate" class="ghost-button" type="button">Вернуть базовый шаблон</button>
+            <a class="ghost-link" href="shablon_chistoty_kompyuternogo_kluba.xlsx" download>Скачать Excel-шаблон</a>
+            <button id="downloadCsvTemplate" class="ghost-button" type="button">Скачать CSV-шаблон</button>
+            <button id="exportTasks" class="ghost-button" type="button">Экспорт задач CSV</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="app.js?v=4"></script>
+  </body>
+</html>
