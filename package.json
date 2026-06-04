@@ -2,12 +2,13 @@
   "name": "baza-clean-ops",
   "version": "1.0.0",
   "description": "Desktop checklist app for BAZA computer club cleanliness shifts.",
+  "author": "BAZA by IGNATIEV",
   "private": true,
   "main": "electron/main.cjs",
   "scripts": {
     "start": "electron .",
     "desktop": "electron .",
-    "build:win": "electron-builder --win --x64",
+    "build:win": "electron-builder --win --x64 --publish never",
     "build:windows": "npm run build:win"
   },
   "devDependencies": {
@@ -30,6 +31,7 @@
       "electron/**/*"
     ],
     "win": {
+      "icon": "assets/baza-app-icon.ico",
       "target": [
         {
           "target": "nsis",
