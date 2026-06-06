@@ -711,7 +711,11 @@ function getCompletion(taskId) {
 }
 
 function completionKey(taskId) {
-  return `${state.shiftDate}|${state.shift}|${taskId}`;
+  return completionKeyFor(state.shiftDate, state.shift, taskId);
+}
+
+function completionKeyFor(shiftDate, shift, taskId) {
+  return `${shiftDate}|${shift}|${taskId}`;
 }
 
 function priorityClass(priority = "") {
@@ -1015,10 +1019,12 @@ async function syncNow() {
       state.tasks = data.tasks.map((task, index) => rowObjectToTask(task, index)).filter((task) => task.id && task.title);
       state.source = "Google Sheets";
     }
-    if (Array.isArray(data.log)) mergeRemoteLog(data.log);
+    const remoteCompletions = Array.isArray(data.log) ? mergeRemoteLog(data.log) : new Map();
+    const uploaded = await uploadPendingLocalCompletions(remoteCompletions);
     saveStoredState();
     renderAll();
-    setSyncStatus(`Синхронизировано. Задач: ${state.tasks.length}, отметок: ${Object.keys(state.completions).length}.`, "ok");
+    const uploadText = uploaded ? ` Отправлено локальных отметок: ${uploaded}.` : "";
+    setSyncStatus(`Синхронизировано. Задач: ${state.tasks.length}, отметок: ${Object.keys(state.completions).length}.${uploadText}`, "ok");
   } catch (error) {
     console.error(error);
     setSyncStatus(`${error.message}. Если таблица не опубликована, проверьте права Web app deployment.`, "error");
@@ -1083,56 +1089,103 @@ function rowObjectToTask(row, index) {
 }
 
 function mergeRemoteLog(logRows) {
+  const remoteCompletions = new Map();
   for (const row of logRows) {
-    const taskId = cleanCell(row["ID задачи"] || row.taskId);
-    const shiftDate = normalizeDate(cleanCell(row["Дата смены"] || row.shiftDate));
-    const shift = normalizeShift(row["Смена"] || row.shift);
-    if (!taskId || !shiftDate || !shift) continue;
-    const key = `${shiftDate}|${shift}|${taskId}`;
-    const entry = {
-      shiftDate,
-      shift,
-      taskId,
-      taskTitle: cleanCell(row["Задача"] || row.taskTitle),
-      zone: cleanCell(row["Зона"] || row.zone),
-      status: cleanCell(row["Статус"] || row.status) || "Готово",
-      problem: cleanCell(row["Проблема"] || row.problem) || "Нет",
-      note: cleanCell(row["Комментарий"] || row.note),
-      evidenceUrl: cleanCell(row["Подтверждение/фото"] || row.evidenceUrl),
-      employee: cleanCell(row["Сотрудник"] || row.employee),
-      timestamp: cleanCell(row["Время отметки"] || row.timestamp) || new Date().toISOString(),
-      source: "google-sheets",
-    };
+    const entry = rowToCompletion(row);
+    if (!entry) continue;
+    const key = completionKeyFor(entry.shiftDate, entry.shift, entry.taskId);
+    const latestRemote = remoteCompletions.get(key);
+    if (!latestRemote || compareCompletionTimestamps(entry, latestRemote) >= 0) {
+      remoteCompletions.set(key, entry);
+    }
     const current = state.completions[key];
-    if (!current || new Date(entry.timestamp) >= new Date(current.timestamp)) {
+    if (!current || compareCompletionTimestamps(entry, current) >= 0) {
       state.completions[key] = entry;
     }
   }
+  return remoteCompletions;
+}
+
+function rowToCompletion(row) {
+  const taskId = cleanCell(row["ID задачи"] || row.taskId);
+  const shiftDate = normalizeDate(cleanCell(row["Дата смены"] || row.shiftDate));
+  const shift = normalizeShift(row["Смена"] || row.shift);
+  if (!taskId || !shiftDate || !shift) return null;
+  return {
+    shiftDate,
+    shift,
+    taskId,
+    taskTitle: cleanCell(row["Задача"] || row.taskTitle),
+    zone: cleanCell(row["Зона"] || row.zone),
+    status: cleanCell(row["Статус"] || row.status) || "Готово",
+    problem: cleanCell(row["Проблема"] || row.problem) || "Нет",
+    note: cleanCell(row["Комментарий"] || row.note),
+    evidenceUrl: cleanCell(row["Подтверждение/фото"] || row.evidenceUrl),
+    employee: cleanCell(row["Сотрудник"] || row.employee),
+    timestamp: cleanCell(row["Время отметки"] || row.timestamp) || new Date().toISOString(),
+    source: "google-sheets",
+  };
+}
+
+async function uploadPendingLocalCompletions(remoteCompletions) {
+  if (!state.scriptUrl) return 0;
+  const pending = Object.values(state.completions).filter((entry) => {
+    if (!entry || entry.source === "google-sheets" || !entry.taskId || !entry.shiftDate || !entry.shift) return false;
+    const remote = remoteCompletions.get(completionKeyFor(entry.shiftDate, entry.shift, entry.taskId));
+    return shouldUploadLocalCompletion(entry, remote);
+  });
+  if (!pending.length) return 0;
+
+  setSyncStatus(`Отправляю локальные отметки в Google Sheets: ${pending.length}...`, "");
+  await postCompletionPayload({ action: "bulkCompletion", entries: pending });
+  const syncedAt = new Date().toISOString();
+  for (const entry of pending) entry.syncedAt = syncedAt;
+  return pending.length;
+}
+
+function shouldUploadLocalCompletion(localEntry, remoteEntry) {
+  if (!remoteEntry) return true;
+  if (completionSignature(localEntry) === completionSignature(remoteEntry)) return false;
+  const localTime = parseTimestamp(localEntry.timestamp);
+  const remoteTime = parseTimestamp(remoteEntry.timestamp);
+  if (localTime && remoteTime) return localTime > remoteTime;
+  return true;
 }
 
 async function postCompletion(entry) {
-  if (!state.scriptUrl) return;
+  if (!state.scriptUrl) {
+    setSyncStatus("Отметка сохранена локально. Чтобы увидеть ее в Google Sheets, вставьте Apps Script URL и нажмите “Синхронизировать”.", "error");
+    return;
+  }
+  try {
+    const result = await postCompletionPayload({ action: "completion", entry });
+    entry.syncedAt = new Date().toISOString();
+    saveStoredState();
+    setSyncStatus(result === "verified" ? "Отметка записана в Google Sheets." : "Отметка отправлена в Apps Script. Ответ скрыт браузером, проверьте лист “Отметки”.", "ok");
+  } catch (error) {
+    console.error(error);
+    setSyncStatus("Локально сохранено, но отправка в Google Sheets не прошла. Нажмите “Синхронизировать”, когда связь будет доступна.", "error");
+  }
+}
+
+async function postCompletionPayload(payload) {
   try {
     const response = await fetch(state.scriptUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "completion", entry }),
+      body: JSON.stringify(payload),
     });
     if (!response.ok) throw new Error(`Ответ ${response.status}`);
-    setSyncStatus("Отметка записана в Google Sheets.", "ok");
+    return "verified";
   } catch (error) {
-    try {
-      await fetch(state.scriptUrl, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "completion", entry }),
-      });
-      setSyncStatus("Отметка отправлена в Apps Script. Ответ скрыт браузером, проверьте лист “Отметки”.", "ok");
-    } catch (secondError) {
-      console.error(error, secondError);
-      setSyncStatus("Локально сохранено, но отправка в Google Sheets не прошла.", "error");
-    }
+    if (!isAppsScriptUrl(state.scriptUrl)) throw error;
+    await fetch(state.scriptUrl, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+    });
+    return "opaque";
   }
 }
 
@@ -1256,6 +1309,34 @@ function normalizeText(value) {
 
 function cleanCell(value) {
   return String(value ?? "").replace(/\uFEFF/g, "").trim();
+}
+
+function compareCompletionTimestamps(a, b) {
+  return parseTimestamp(a?.timestamp) - parseTimestamp(b?.timestamp);
+}
+
+function completionSignature(entry) {
+  return [
+    entry?.status || "",
+    entry?.problem || "",
+    entry?.note || "",
+    entry?.evidenceUrl || "",
+    entry?.employee || "",
+  ].map(cleanCell).join("\u001F");
+}
+
+function parseTimestamp(value) {
+  const text = cleanCell(value);
+  if (!text) return 0;
+  const direct = Date.parse(text);
+  if (!Number.isNaN(direct)) return direct;
+
+  const dateTime = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!dateTime) return 0;
+  const [, day, month, year, hour = "0", minute = "0", second = "0"] = dateTime;
+  return new Date(
+    `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${hour.padStart(2, "0")}:${minute.padStart(2, "0")}:${second.padStart(2, "0")}+10:00`,
+  ).getTime();
 }
 
 function columnLettersToIndex(letters) {

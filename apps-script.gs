@@ -1,5 +1,6 @@
 const TASK_SHEET = 'Задачи';
 const LOG_SHEET = 'Отметки';
+const STATUS_SHEET = 'Статус смены';
 
 const LOG_HEADERS = [
   'Время отметки',
@@ -16,6 +17,21 @@ const LOG_HEADERS = [
   'Источник',
 ];
 
+const STATUS_HEADERS = [
+  'Дата смены',
+  'Смена',
+  'ID задачи',
+  'Зона',
+  'Задача',
+  'Статус',
+  'Проблема',
+  'Сотрудник',
+  'Комментарий',
+  'Подтверждение/фото',
+  'Обновлено',
+  'Источник',
+];
+
 function doGet(e) {
   const params = e && e.parameter ? e.parameter : {};
   const action = String(params.action || 'state');
@@ -26,11 +42,14 @@ function doGet(e) {
     data = { ok: true, tasks: readTable_(TASK_SHEET) };
   } else if (action === 'log') {
     data = { ok: true, log: readTable_(LOG_SHEET) };
+  } else if (action === 'status') {
+    data = { ok: true, status: readTable_(STATUS_SHEET) };
   } else {
     data = {
       ok: true,
       tasks: readTable_(TASK_SHEET),
       log: readTable_(LOG_SHEET),
+      status: readTable_(STATUS_SHEET),
       time: new Date().toISOString(),
     };
   }
@@ -53,8 +72,9 @@ function doPost(e) {
 
 function appendCompletion_(entry) {
   const sheet = getOrCreateSheet_(LOG_SHEET, LOG_HEADERS);
+  const timestamp = entry.timestamp ? new Date(entry.timestamp) : new Date();
   sheet.appendRow([
-    entry.timestamp ? new Date(entry.timestamp) : new Date(),
+    timestamp,
     entry.shiftDate || '',
     entry.shift || '',
     entry.employee || '',
@@ -67,6 +87,39 @@ function appendCompletion_(entry) {
     entry.evidenceUrl || '',
     entry.source || 'site',
   ]);
+  upsertShiftStatus_(entry, timestamp);
+}
+
+function upsertShiftStatus_(entry, timestamp) {
+  if (!entry.shiftDate || !entry.shift || !entry.taskId) return;
+  const sheet = getOrCreateSheet_(STATUS_SHEET, STATUS_HEADERS);
+  const key = [entry.shiftDate, entry.shift, entry.taskId].join('|');
+  const row = [
+    entry.shiftDate || '',
+    entry.shift || '',
+    entry.taskId || '',
+    entry.zone || '',
+    entry.taskTitle || '',
+    entry.status || 'Готово',
+    entry.problem || (entry.status === 'Проблема' ? 'Да' : 'Нет'),
+    entry.employee || '',
+    entry.note || '',
+    entry.evidenceUrl || '',
+    timestamp,
+    entry.source || 'site',
+  ];
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    const keys = sheet.getRange(2, 1, lastRow - 1, 3).getDisplayValues();
+    for (let index = 0; index < keys.length; index += 1) {
+      if (keys[index].join('|') === key) {
+        sheet.getRange(index + 2, 1, 1, STATUS_HEADERS.length).setValues([row]);
+        return;
+      }
+    }
+  }
+  sheet.appendRow(row);
 }
 
 function readTable_(sheetName) {
