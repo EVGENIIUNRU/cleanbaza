@@ -1,6 +1,7 @@
 const TASK_SHEET = 'Задачи';
 const LOG_SHEET = 'Отметки';
 const STATUS_SHEET = 'Статус смены';
+const TZ = 'Asia/Vladivostok';
 
 const LOG_HEADERS = [
   'Время отметки',
@@ -72,9 +73,10 @@ function doPost(e) {
 
 function appendCompletion_(entry) {
   const sheet = getOrCreateSheet_(LOG_SHEET, LOG_HEADERS);
-  const timestamp = entry.timestamp ? new Date(entry.timestamp) : new Date();
+  const timestamp = parseTimestamp_(entry.timestamp);
+  const timestampText = formatTimestamp_(timestamp);
   sheet.appendRow([
-    timestamp,
+    timestampText,
     entry.shiftDate || '',
     entry.shift || '',
     entry.employee || '',
@@ -87,10 +89,10 @@ function appendCompletion_(entry) {
     entry.evidenceUrl || '',
     entry.source || 'site',
   ]);
-  upsertShiftStatus_(entry, timestamp);
+  upsertShiftStatus_(entry, timestampText);
 }
 
-function upsertShiftStatus_(entry, timestamp) {
+function upsertShiftStatus_(entry, timestampText) {
   if (!entry.shiftDate || !entry.shift || !entry.taskId) return;
   const sheet = getOrCreateSheet_(STATUS_SHEET, STATUS_HEADERS);
   const key = [entry.shiftDate, entry.shift, entry.taskId].join('|');
@@ -105,7 +107,7 @@ function upsertShiftStatus_(entry, timestamp) {
     entry.employee || '',
     entry.note || '',
     entry.evidenceUrl || '',
-    timestamp,
+    timestampText,
     entry.source || 'site',
   ];
 
@@ -164,6 +166,15 @@ function parseBody_(e) {
   } catch (error) {
     return {};
   }
+}
+
+function parseTimestamp_(value) {
+  const date = value ? new Date(value) : new Date();
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function formatTimestamp_(date) {
+  return Utilities.formatDate(date, TZ, 'dd.MM.yyyy HH:mm:ss');
 }
 
 function json_(data, callback) {
