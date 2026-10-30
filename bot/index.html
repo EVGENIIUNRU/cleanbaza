@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><base target="_top">
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif;background:#12141c;color:#f2f4fa}*{box-sizing:border-box}body{margin:0;padding:20px 16px 90px;max-width:660px;margin-inline:auto}h1{font-size:28px;margin:8px 0}h2{font-size:20px}p{line-height:1.5}small,.muted{color:#a8afc4}.brand{font-size:12px;letter-spacing:.2em;color:#8fb5ff}.card{background:#202434;border:1px solid #30364a;border-radius:22px;padding:18px;margin:12px 0}.row{display:flex;justify-content:space-between;align-items:center;gap:12px}.badge{border-radius:20px;padding:5px 9px;font-size:12px;background:#313951;white-space:nowrap}.late{color:#ffbd93}.good{color:#9cdeb5}button,select,textarea{font:inherit;width:100%;border:0;border-radius:16px;padding:15px;background:#303a57;color:#fff}button{cursor:pointer;min-height:50px;margin-top:10px;text-align:left}button.primary{background:#347cf4;text-align:center;font-weight:650}button.danger{background:#62383c}button:disabled{opacity:.45;cursor:wait}nav{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0}nav button{width:auto;flex:1;font-size:14px;padding:12px;text-align:center}nav button.active{background:#347cf4}label.check{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:1px solid #343a4c;line-height:1.45}input[type=checkbox]{width:23px;height:23px;flex-shrink:0;accent-color:#4089ff}textarea{min-height:88px;resize:vertical;margin-top:12px}video{width:100%;border-radius:18px;background:#080a10;max-height:55vh}img{width:100%;border-radius:14px;margin-top:10px}.notice{border-left:3px solid #74a6ff;padding:12px;background:#252c40;border-radius:6px;line-height:1.5}#message{position:sticky;top:8px;z-index:5;padding:12px;background:#56383b;border-radius:12px;white-space:pre-wrap}#message:empty{display:none}.shotgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.toolbar{display:flex;gap:8px}.toolbar button{flex:1;text-align:center}.empty{padding:35px 15px;text-align:center;color:#a8afc4}
+</style></head><body>
+<input id="ticket" type="hidden" value="">
+<div class="brand">BAZA / КОНТРОЛЬ ЧИСТОТЫ</div><h1>Моя смена</h1><div id="identity" class="muted"></div><div id="message" role="alert" aria-live="polite"></div><main id="app"><p>Загружаем задания…</p></main>
+<script>
+'use strict';
+const app=document.querySelector('#app');
+const fromHash=new URLSearchParams(location.hash.slice(1)).get('session');
+if(fromHash){sessionStorage.setItem('bazaSession',fromHash);history.replaceState(null,'',location.pathname+location.search);}
+const ticket=fromHash||sessionStorage.getItem('bazaSession')||document.querySelector('#ticket').value;
+const ENDPOINT='https://script.google.com/macros/s/AKfycbysC5d5PaP-NLdrQrctK4GsAvduyCjeXj1YsWXFQnnL7f33NZY4cLfIExW5xdblWyA/exec';
+let state,filter='now',selected,capture,stream,photoCount=0,busy=false;
+const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
+const when=t=>new Intl.DateTimeFormat('ru-RU',{timeZone:'Asia/Vladivostok',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(t);
+function message(text=''){document.querySelector('#message').textContent=text;}
+function jsonp(params){return new Promise((resolve,reject)=>{const name='baza_'+crypto.randomUUID().replaceAll('-','');const script=document.createElement('script');const url=new URL(ENDPOINT);for(const [k,v] of Object.entries({...params,session:ticket,callback:name}))url.searchParams.set(k,v);let timer;const cleanup=()=>{clearTimeout(timer);script.remove();delete window[name];};window[name]=data=>{cleanup();resolve(data);};script.onerror=()=>{cleanup();reject(new Error('Не удалось связаться с Apps Script'));};timer=setTimeout(()=>{cleanup();reject(new Error('Сервер не ответил. Проверьте соединение и обновите задания.'));},30000);script.src=url.href;document.head.append(script);});}
+async function rpc(op,p={}){
+ if(window.google?.script?.run)return new Promise((resolve,reject)=>google.script.run.withSuccessHandler(resolve).withFailureHandler(e=>reject(new Error(e.message||'Нет связи с сервером'))).api(op,ticket,p));
+ if(!ticket||ticket.includes('<?'))throw new Error('Откройте /start в @Chek_Baza_bot и нажмите «Открыть задания».');
+ let result;
+ if(['state','photo'].includes(op))result=await jsonp({op,payload:JSON.stringify(p)});
+ else{
+  const request=crypto.randomUUID();
+  await fetch(ENDPOINT,{method:'POST',mode:'no-cors',credentials:'omit',redirect:'follow',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({op,ticket,payload:p,request})});
+  for(let i=0;i<15;i++){result=await jsonp({action:'result',request});if(!result.pending)break;await new Promise(r=>setTimeout(r,2000));}
+ }
+ if(result?.pending)throw new Error('Подтверждение задерживается. Обновите задания перед повторной отправкой.');
+ if(!result?.ok)throw new Error(result?.error||'Ошибка сервера');return result.value;
+}
+async function action(fn){if(busy)return;busy=true;message();try{await fn();}catch(e){message(e.message);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);}}
+function button(text,fn,cls=''){const b=el('button',text,cls);b.onclick=()=>{if(busy)return;b.disabled=true;action(fn);};return b;}
+function stopCamera(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;}
+async function refresh(){stopCamera();state=await rpc('state');document.querySelector('#identity').textContent=state.user.name+' · '+state.shift.name+' '+when(state.shift.start);renderList();}
+function renderList(){
+ selected=null;capture=null;app.replaceChildren();
+ const nav=el('nav');[['now','Сейчас'],['late','Просрочено'],['history','История']].concat(state.user.role==='owner'?[['review','На проверке']]:[]).forEach(([key,label])=>nav.append(button(label,async()=>{filter=key;renderList();},filter===key?'active':'')));app.append(nav);
+ if(filter==='history'||filter==='review'){
+  const reports=state.reports.filter(r=>filter!=='review'||r.status==='Отчёт отправлен');
+  reports.forEach(r=>{const card=el('section',undefined,'card');card.append(el('strong',r.title+' · '+r.object),el('p',r.name+' · '+when(r.at)),el('span',r.status,'badge'));card.append(button('Открыть отчёт',()=>showReport(r)));app.append(card);});
+  if(!reports.length)app.append(el('p','Отчётов пока нет','empty'));
+ }else{
+  const tasks=state.tasks.filter(t=>!['Принято','Отчёт отправлен'].includes(t.status)&&(filter!=='late'||t.due<state.now));
+  tasks.sort((a,b)=>a.due-b.due);
+  app.append(el('p','Открыто: '+tasks.length+' · время Владивостока','muted'));
+  tasks.forEach(t=>{const c=el('section',undefined,'card');const row=el('div',undefined,'row');row.append(el('strong',t.object),el('span',t.due<state.now?'Просрочено':when(t.due),'badge '+(t.due<state.now?'late':'')));c.append(row,el('h2',t.title),el('small',t.status+' · '+t.steps.length+' пунктов · фото: '+t.photoCount));c.append(button('Открыть задание',()=>showTask(t),'primary'));app.append(c);});
+  if(!tasks.length)app.append(el('p','Все текущие задания отправлены или приняты','empty'));
+  if(filter==='now')app.append(button('После гостя · новое задание',showEvent));
+ }
+ app.append(button('Обновить',refresh));
+}
+async function showTask(t){
+ stopCamera();selected=t;capture=null;photoCount=0;app.replaceChildren();
+ app.append(button('‹ Назад',async()=>{stopCamera();renderList();}));
+ app.append(el('h2',t.title),el('p',t.object+' · срок '+when(t.due),'muted'));
+ const standard=el('div',t.standard,'notice');app.append(standard);
+ const checks=el('section',undefined,'card');
+ t.steps.forEach((s,i)=>{const label=el('label',undefined,'check'),box=el('input');box.type='checkbox';box.id='check'+i;label.append(box,el('span',s));checks.append(label);});app.append(checks);
+ if(t.note)app.append(el('p',t.note,'muted'));
+ const note=el('textarea');note.id='note';note.placeholder='Комментарий, недостача или передача смены';note.maxLength=1500;app.append(note);
+ const progress=el('p','Фото: 0 / '+t.photoCount);progress.id='progress';app.append(progress);
+ const camera=el('section');camera.id='camera';app.append(camera);
+ const gallery=el('div',undefined,'shotgrid');gallery.id='shots';app.append(gallery);
+ app.append(button('📷 Открыть камеру',openCamera,'primary'));
+ app.append(button('Отправить отчёт',async()=>{
+   const checked=t.steps.map((_,i)=>document.querySelector('#check'+i).checked);
+   if(checked.some(x=>!x))throw new Error('Отметьте каждый подпункт');
+   if(photoCount<t.photoCount)throw new Error('Добавьте все обязательные фото');
+   if(!capture)capture=await rpc('start',{id:t.id});
+   await rpc('submit',{capture:capture.id,checked,note:note.value});
+   stopCamera();await refresh();message('Отчёт сохранён и поставлен на отправку руководителю. Ожидает проверки.');
+ },'primary'));
+ app.append(button('Есть проблема',async()=>{if(!note.value.trim())throw new Error('Опишите проблему в комментарии');await rpc('problem',{id:t.id,note:note.value});message('Проблема зарегистрирована. Задание не закрыто.');},'danger'));
+}
+async function openCamera(){
+ if(!navigator.mediaDevices?.getUserMedia)throw new Error('Камера недоступна в этом клиенте. Откройте ссылку на телефоне. Галерея для отчётов отключена.');
+ stopCamera();
+ try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1600}},audio:false});}
+ catch(e){throw new Error('Не удалось открыть камеру. Разрешите доступ в настройках. Если Telegram или Apps Script блокирует камеру — сообщите руководителю; отчёт не будет закрыт без фото.');}
+ if(!capture){try{capture=await rpc('start',{id:selected.id});}catch(e){stopCamera();throw e;}}
+ const area=document.querySelector('#camera');area.replaceChildren();
+ const video=el('video');video.autoplay=true;video.muted=true;video.playsInline=true;video.srcObject=stream;area.append(video);await video.play();
+ area.append(button('Сделать снимок',async()=>{
+   if(!video.videoWidth)throw new Error('Камера ещё запускается');
+   const canvas=document.createElement('canvas'),ratio=Math.min(1,1600/video.videoWidth);canvas.width=Math.round(video.videoWidth*ratio);canvas.height=Math.round(video.videoHeight*ratio);canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+   const image=canvas.toDataURL('image/jpeg',.78);const result=await rpc('upload',{capture:capture.id,image});
+   photoCount=result.count;document.querySelector('#progress').textContent='Фото сохранено: '+photoCount+' / '+selected.photoCount;
+   const preview=el('img');preview.src=image;preview.alt='Снимок '+photoCount;document.querySelector('#shots').append(preview);
+ },'primary'));
+ area.append(button('Выключить камеру',async()=>{stopCamera();area.replaceChildren();}));
+}
+async function showReport(r){
+ app.replaceChildren();app.append(button('‹ Назад',async()=>renderList()),el('h2',r.title),el('p',r.object+' · '+r.name+' · '+when(r.at)),el('p',r.note||'Без комментария'));
+ app.append(el('p',r.status,'badge'));
+ for(let i=0;i<r.photos.length;i++){const img=el('img');img.alt='Фотоотчёт '+(i+1);img.src=await rpc('photo',{report:r.id,index:i});app.append(img);}
+ if(state.user.role==='owner'&&r.status==='Отчёт отправлен'){
+   const note=el('textarea');note.placeholder='Что нужно исправить';app.append(note);
+   for(const status of ['Принято','Нужна доработка'])app.append(button(status,async()=>{await rpc('review',{id:r.id,status,note:note.value});await refresh();},status==='Принято'?'primary':'danger'));
+ }
+}
+async function showEvent(){
+ app.replaceChildren();app.append(button('‹ Назад',async()=>renderList()),el('h2','Уборка после гостя'));
+ const task=el('select'),object=el('select');
+ state.eventTasks.forEach(t=>{const o=el('option',t.title);o.value=t.id;task.append(o);});
+ state.objects.forEach(t=>{const o=el('option',t.name);o.value=t.id;object.append(o);});app.append(task,el('p','Компьютерное место'),object);
+ app.append(button('Создать задание',async()=>{const r=await rpc('event',{task:task.value,object:object.value});state=await rpc('state');await showTask(state.tasks.find(t=>t.id===r.id));},'primary'));
+}
+window.addEventListener('pagehide',stopCamera);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera();});
+action(refresh);
+</script></body></html>
