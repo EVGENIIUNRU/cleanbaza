@@ -1,7 +1,8 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><base target="_top">
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BAZA — контроль чистоты</title><meta name="referrer" content="no-referrer"><base target="_top">
 <style>
 :root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif;background:#12141c;color:#f2f4fa}*{box-sizing:border-box}body{margin:0;padding:20px 16px 90px;max-width:660px;margin-inline:auto}h1{font-size:28px;margin:8px 0}h2{font-size:20px}p{line-height:1.5}small,.muted{color:#a8afc4}.brand{font-size:12px;letter-spacing:.2em;color:#8fb5ff}.card{background:#202434;border:1px solid #30364a;border-radius:22px;padding:18px;margin:12px 0}.row{display:flex;justify-content:space-between;align-items:center;gap:12px}.badge{border-radius:20px;padding:5px 9px;font-size:12px;background:#313951;white-space:nowrap}.late{color:#ffbd93}.good{color:#9cdeb5}button,select,textarea{font:inherit;width:100%;border:0;border-radius:16px;padding:15px;background:#303a57;color:#fff}button{cursor:pointer;min-height:50px;margin-top:10px;text-align:left}button.primary{background:#347cf4;text-align:center;font-weight:650}button.danger{background:#62383c}button:disabled{opacity:.45;cursor:wait}nav{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0}nav button{width:auto;flex:1;font-size:14px;padding:12px;text-align:center}nav button.active{background:#347cf4}label.check{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:1px solid #343a4c;line-height:1.45}input[type=checkbox]{width:23px;height:23px;flex-shrink:0;accent-color:#4089ff}textarea{min-height:88px;resize:vertical;margin-top:12px}video{width:100%;border-radius:18px;background:#080a10;max-height:55vh}img{width:100%;border-radius:14px;margin-top:10px}.notice{border-left:3px solid #74a6ff;padding:12px;background:#252c40;border-radius:6px;line-height:1.5}#message{position:sticky;top:8px;z-index:5;padding:12px;background:#56383b;border-radius:12px;white-space:pre-wrap}#message:empty{display:none}.shotgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.toolbar{display:flex;gap:8px}.toolbar button{flex:1;text-align:center}.empty{padding:35px 15px;text-align:center;color:#a8afc4}
+body.cabinet{max-width:1280px}.admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}.metric{display:flex;flex-direction:column;gap:8px}.metric strong{font-size:36px}.metric span{color:#a8afc4}.filters,.editor-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px}input:not([type=checkbox]):not([type=hidden]){font:inherit;width:100%;padding:14px;border:1px solid #39445b;border-radius:12px;background:#202434;color:#fff}label select,label input,label textarea{display:block;margin-top:8px}label{line-height:1.5}summary{cursor:pointer;padding:12px 0}.cabinet .toolbar{flex-wrap:wrap}.toolbar>input,.toolbar>select{flex:1;min-width:140px}.admin-grid img{object-fit:contain;max-height:80vh}.editor-form textarea{min-height:140px}
 </style></head><body>
 <input id="ticket" type="hidden" value="">
 <div class="brand">BAZA / КОНТРОЛЬ ЧИСТОТЫ</div><h1>Моя смена</h1><div id="identity" class="muted"></div><div id="message" role="alert" aria-live="polite"></div><main id="app"><p>Загружаем задания…</p></main>
@@ -21,7 +22,7 @@ async function rpc(op,p={}){
  if(window.google?.script?.run)return new Promise((resolve,reject)=>google.script.run.withSuccessHandler(resolve).withFailureHandler(e=>reject(new Error(e.message||'Нет связи с сервером'))).api(op,ticket,p));
  if(!ticket||ticket.includes('<?'))throw new Error('Откройте /start в @Chek_Baza_bot и нажмите «Открыть задания».');
  let result;
- if(['state','photo'].includes(op))result=await jsonp({op,payload:JSON.stringify(p)});
+ if(['state','photo','adminState','adminCatalog'].includes(op))result=await jsonp({op,payload:JSON.stringify(p)});
  else{
   const request=crypto.randomUUID();
   await fetch(ENDPOINT,{method:'POST',mode:'no-cors',credentials:'omit',redirect:'follow',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({op,ticket,payload:p,request})});
@@ -33,9 +34,9 @@ async function rpc(op,p={}){
 async function action(fn){if(busy)return;busy=true;message();try{await fn();}catch(e){message(e.message);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);}}
 function button(text,fn,cls=''){const b=el('button',text,cls);b.onclick=()=>{if(busy)return;b.disabled=true;action(fn);};return b;}
 function stopCamera(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;}
-async function refresh(){stopCamera();state=await rpc('state');document.querySelector('#identity').textContent=state.user.name+' · '+state.shift.name+' '+when(state.shift.start);renderList();}
+async function refresh(){stopCamera();state=await rpc('state');document.querySelector('#identity').textContent=state.user.name+' · '+state.shift.name+' '+when(state.shift.start);if(state.user.role==='owner'&&cabinet){await openCabinet();return;}renderList();}
 function renderList(){
- selected=null;capture=null;app.replaceChildren();
+ selected=null;capture=null;app.replaceChildren();if(state.user.role==='owner')app.append(button('Кабинет руководителя',openCabinet,'primary'));
  const nav=el('nav');[['now','Сейчас'],['late','Просрочено'],['history','История']].concat(state.user.role==='owner'?[['review','На проверке']]:[]).forEach(([key,label])=>nav.append(button(label,async()=>{filter=key;renderList();},filter===key?'active':'')));app.append(nav);
  if(filter==='history'||filter==='review'){
   const reports=state.reports.filter(r=>filter!=='review'||r.status==='Отчёт отправлен');
@@ -109,5 +110,76 @@ async function showEvent(){
 }
 window.addEventListener('pagehide',stopCamera);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera();});
+let cabinet=true,adminTab='overview',adminData,adminStart,adminCatalog,adminEmployee='',adminStatus='',adminZone='',adminPage=0;
+async function openCabinet(){
+ stopCamera();cabinet=true;document.body.classList.add('cabinet');document.querySelector('h1').textContent='Кабинет руководителя';
+ adminData=await rpc('adminState',adminStart===undefined?{}:{start:adminStart});adminStart=adminData.shift.start;renderCabinet();
+}
+function ownerHeader(){
+ app.replaceChildren();const top=el('div',undefined,'toolbar');
+ top.append(button('← Смена',async()=>{if(adminStart<=adminData.earliest)return;adminStart-=12*3600000;adminPage=0;await openCabinet();}),button('Текущая смена',async()=>{adminStart=undefined;adminPage=0;await openCabinet();}),button('Смена →',async()=>{if(adminStart>=adminData.latest)return;adminStart+=12*3600000;adminPage=0;await openCabinet();}));app.append(top);
+ app.append(el('h2',adminData.shift.name+' · '+when(adminStart)+' — '+when(adminData.shift.end)),el('p','Время Владивостока. Ночная смена относится к дате её начала.','muted'));
+ const jump=el('div',undefined,'toolbar'),day=el('input'),type=el('select');day.type='date';day.value=adminData.shift.day;day.setAttribute('aria-label','Дата смены');
+ ['Дневная','Ночная'].forEach(x=>{const o=el('option',x);type.append(o);});type.value=adminData.shift.name;type.setAttribute('aria-label','Тип смены');jump.append(day,type,button('Показать',async()=>{const target=Date.parse(day.value+'T'+(type.value==='Дневная'?'10':'22')+':00:00+10:00');if(!Number.isFinite(target))throw new Error('Выберите дату');adminStart=target;adminPage=0;await openCabinet();}));app.append(jump);
+ const nav=el('nav');[['overview','Обзор'],['photos','Фотоотчёты'],['tasks','Задания смены'],['carry','Переходящие'],['editor','Редактор']].forEach(([key,label])=>nav.append(button(label,async()=>{adminTab=key;adminPage=0;if(key==='editor')adminCatalog=await rpc('adminCatalog');renderCabinet();},adminTab===key?'active':'')));app.append(nav);
+}
+function metric(label,value){const c=el('section',undefined,'card metric');c.append(el('strong',String(value)),el('span',label));return c;}
+function renderCabinet(){
+ ownerHeader();const d=adminData;
+ if(adminTab==='overview'){
+  const grid=el('div',undefined,'metrics');grid.append(metric('Заданий смены',d.tasks.length),metric('Принято',d.tasks.filter(t=>t.status==='Принято').length),metric('На проверке',d.reports.filter(r=>r.status==='Отчёт отправлен').length),metric('Нет отчёта',d.tasks.filter(t=>!['Принято','Отчёт отправлен'].includes(t.status)).length));app.append(grid);
+  app.append(el('p','Статусы актуальны на момент обновления. «Отчёт отправлен» означает, что проверка руководителем ещё не завершена.','notice'));
+  const zones={};d.tasks.forEach(t=>{const z=t.zone||'Без зоны';(zones[z]??=[]).push(t);});const grid2=el('div',undefined,'admin-grid');
+  Object.entries(zones).forEach(([zone,list])=>{const c=el('section',undefined,'card');c.append(el('h2',zone),el('p',list.filter(t=>t.status==='Принято').length+' принято из '+list.length),button('Посмотреть задания',()=>{adminZone=zone;adminTab='tasks';renderCabinet();}));grid2.append(c);});app.append(grid2);
+  app.append(el('p','Переходящих заданий: '+d.carried.length+' · Сообщений о проблемах: '+d.problems.length,'muted'));
+  d.problems.forEach(p=>{const c=el('section',undefined,'card');c.append(el('strong',p.name+' · '+when(p.at)),el('p',p.note));app.append(c);});
+ }else if(adminTab==='photos')renderAdminPhotos();
+ else if(adminTab==='editor')renderEditor();
+ else renderAdminTasks(adminTab==='carry'?d.carried:d.tasks);
+ const bottom=el('div',undefined,'toolbar');bottom.append(button('Обновить',openCabinet),button('Excel этой смены в группу',async()=>{await rpc('adminExport',{start:adminStart});message('Excel поставлен в очередь отправки в группу.');}),button('Режим сотрудника',()=>{cabinet=false;document.body.classList.remove('cabinet');document.querySelector('h1').textContent='Моя смена';renderList();}));app.append(bottom);
+}
+function selectFilter(label,values,value,onchange){const wrap=el('label',label),select=el('select');['',...values].forEach(x=>{const o=el('option',x||'Все');o.value=x;select.append(o);});select.value=value;select.onchange=()=>{onchange(select.value);adminPage=0;renderCabinet();};wrap.append(select);return wrap;}
+function renderAdminTasks(list){
+ const zones=[...new Set(list.map(t=>t.zone||'Без зоны'))];app.append(selectFilter('Зона',zones,adminZone,x=>adminZone=x));
+ const filtered=list.filter(t=>!adminZone||(t.zone||'Без зоны')===adminZone);app.append(el('p',filtered.length+' заданий. Будущие сроки и задания без отчёта видны отдельно.','muted'));
+ const grid=el('div',undefined,'admin-grid');filtered.forEach(t=>{const c=el('section',undefined,'card');c.append(el('span',t.status,'badge'),el('h2',t.title),el('p',t.object+' · срок '+when(t.due)),el('small','Создано для '+t.shift+' · '+t.day));const details=el('details');details.append(el('summary','Подпункты · '+t.steps.length));t.steps.forEach(s=>details.append(el('p','• '+s)));c.append(details);grid.append(c);});app.append(grid);if(!filtered.length)app.append(el('p','Заданий с такими условиями нет.','empty'));
+}
+function renderAdminPhotos(){
+ const all=adminData.reports,filters=el('div',undefined,'filters');filters.append(selectFilter('Сотрудник',[...new Set(all.map(r=>r.name))],adminEmployee,x=>adminEmployee=x),selectFilter('Статус',['Отчёт отправлен','Принято','Нужна доработка'],adminStatus,x=>adminStatus=x));app.append(filters);
+ const list=all.filter(r=>(!adminEmployee||r.name===adminEmployee)&&(!adminStatus||r.status===adminStatus));app.append(el('p','Найдено: '+list.length+' · отчёты заданий смены и отправленные в её период','muted'));
+ const grid=el('div',undefined,'admin-grid');list.slice(adminPage*12,adminPage*12+12).forEach(r=>{const c=el('section',undefined,'card');c.append(el('span',r.status,'badge'),el('h2',r.title),el('p',r.object+' · '+r.name),el('small',when(r.at)+' · '+r.photos.length+' фото'),el('p',r.note||'Без комментария'));if(r.reviewNote)c.append(el('p','Проверка: '+r.reviewNote,'notice'));c.append(button('Фотографии и проверка',()=>showAdminReport(r),'primary'));grid.append(c);});app.append(grid);
+ if(!list.length)app.append(el('p','Фотоотчётов с такими условиями нет.','empty'));
+ if(list.length>12){const row=el('div',undefined,'toolbar');row.append(button('← Предыдущие',()=>{adminPage=Math.max(0,adminPage-1);renderCabinet();}),el('p',(adminPage+1)+' / '+Math.ceil(list.length/12)),button('Следующие →',()=>{adminPage=Math.min(Math.ceil(list.length/12)-1,adminPage+1);renderCabinet();}));app.append(row);}
+}
+async function showAdminReport(r){
+ app.replaceChildren();app.append(button('← К отчётам смены',()=>renderCabinet()),el('h2',r.title),el('p',r.object+' · '+r.name+' · '+when(r.at)),el('span',r.status,'badge'),el('p',r.note||'Без комментария'));
+ const checks=el('section',undefined,'card');r.steps.forEach((s,i)=>checks.append(el('p',(r.checked[i]?'✓ ':'□ ')+s)));app.append(checks);
+ const gallery=el('div',undefined,'admin-grid');app.append(gallery);
+ for(let i=0;i<r.photos.length;i++){const img=el('img');img.alt=r.object+' · фото '+(i+1);img.src=await rpc('photo',{report:r.id,index:i});gallery.append(img);}
+ if(!r.photos.length)app.append(el('p','Для этого задания фото не требовалось.','muted'));
+ if(r.status==='Отчёт отправлен'){
+  const note=el('textarea');note.placeholder='Комментарий к проверке; обязателен при возврате';note.maxLength=1000;app.append(note);
+  const row=el('div',undefined,'toolbar');['Принято','Нужна доработка'].forEach(status=>row.append(button(status,async()=>{await rpc('review',{id:r.id,status,note:note.value});adminTab='photos';await openCabinet();message('Решение сохранено.');},status==='Принято'?'primary':'danger')));app.append(row);
+ }else app.append(el('p',r.reviewNote||'Отчёт уже проверен','notice'));
+}
+function renderEditor(){
+ if(!adminCatalog){app.append(button('Загрузить настройки',async()=>{adminCatalog=await rpc('adminCatalog');renderCabinet();}));return;}
+ app.append(el('p','Изменения вступят в силу '+when(adminCatalog.effectiveAt)+'. Уже выданные задания и история сохраняются. Для изменённых здесь заданий настройки кабинета имеют приоритет над листом «Задачи».','notice'));
+ const preview=el('div',undefined,'metrics');[adminCatalog.preview,adminCatalog.nextPreview].forEach(p=>preview.append(metric(p.shift.name+' · '+when(p.shift.start),p.count)));app.append(preview,el('p','Расчёт плановых проверок. Клавиатуры по индивидуальному циклу и уборка после гостей считаются отдельно.','muted'));
+ const grid=el('div',undefined,'admin-grid');adminCatalog.tasks.forEach(entry=>{const t=entry.task,c=el('section',undefined,'card'),changed=JSON.stringify(t)!==JSON.stringify(entry.current);c.append(el('span',t.active?'Включено':'Отключено','badge'),el('h2',t.title),el('p',t.zone+' · '+t.frequency+' · '+t.shift),el('small',t.id==='CLN-007'?'Подпункты добавляются к санузлу':t.steps.length+' подпунктов · '+photoDefault(t)+' фото'));if(changed)c.append(el('p','Есть изменения со следующей смены','good'));c.append(button('Редактировать',()=>editRule(entry)));grid.append(c);});app.append(grid);
+}
+function photoDefault(t){return Number.isInteger(t.photoCount)?t.photoCount:t.id==='CLN-006'?3:['CLN-012','CLN-013','CLN-031'].includes(t.id)?2:t.photo?1:0;}
+function editRule(entry){
+ const t=entry.task;app.replaceChildren();app.append(button('← К редактору',()=>renderCabinet()),el('h2',t.title),el('p','Применение со следующей смены: '+when(adminCatalog.effectiveAt),'notice'));
+ const fields={},form=el('div',undefined,'editor-form');
+ function field(key,label,value,options){const wrap=el('label',label),input=el(options?'select':['steps','standard','note'].includes(key)?'textarea':'input');if(options){[...new Set([...options,value])].forEach(v=>{const o=el('option',v);input.append(o);});}else input.type=key==='anchor'?'date':['photoCount','days','keyboardShifts'].includes(key)?'number':'text';input.value=value;fields[key]=input;wrap.append(input);form.append(wrap);}
+ field('title','Название',t.title);field('zone','Зона',t.zone);field('active','Активность',t.active?'Включено':'Отключено',['Включено','Отключено']);field('shift','Смена',t.shift,['Обе','Дневная','Ночная']);
+ field('frequency','Периодичность',t.frequency,['Каждая смена','Каждый день','Каждые 2 часа','Каждые 3 часа','Каждые 4 часа','Каждые 6 часа','После каждого гостя','Через день','Каждые 3 дня','Еженедельно','Раз в 3 недели','Раз в месяц']);
+ field('deadline','Срок: Начало смены / Конец смены / ЧЧ:ММ',t.deadline||'Конец смены');field('photoCount','Обязательных фото (0–6)',photoDefault(t));field('days','Интервал дней',t.days||0);field('anchor','Дата начала цикла',t.anchor||'');
+ if(t.id==='CLN-012'){field('keyboardShifts','Цикл клавиатур: 2 или 3 смены',t.keyboardShifts||2);app.append(el('p','Уже назначенные клавиатуры сохраняют срок. Новый цикл применяется к следующим заданиям.','muted'));}
+ field('steps','Подпункты — по одному на строку',t.steps.join('\n'));field('standard','Как должен выглядеть результат',t.standard||'');field('note','Подсказка сотруднику',t.note||'');app.append(form);
+ app.append(button('Сохранить со следующей смены',async()=>{const input=Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value]));input.active=input.active==='Включено';input.steps=input.steps.split('\n').map(s=>s.trim()).filter(Boolean);const result=await rpc('adminSave',{id:t.id,revision:entry.revision,effectiveAt:adminCatalog.effectiveAt,task:input});adminCatalog=await rpc('adminCatalog');renderCabinet();message('Сохранено. Вступит в силу '+when(result.effectiveAt));},'primary'));
+}
+
 action(refresh);
 </script></body></html>
