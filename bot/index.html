@@ -127,7 +127,7 @@ function metric(label,value){const c=el('section',undefined,'card metric');c.app
 function renderCabinet(){
  ownerHeader();const d=adminData;
  if(adminTab==='overview'){
-  const grid=el('div',undefined,'metrics');grid.append(metric('Заданий смены',d.tasks.length),metric('Принято',d.tasks.filter(t=>t.status==='Принято').length),metric('На проверке',d.reports.filter(r=>r.status==='Отчёт отправлен').length),metric('Нет отчёта',d.tasks.filter(t=>!['Принято','Отчёт отправлен'].includes(t.status)).length));app.append(grid);
+  const grid=el('div',undefined,'metrics');grid.append(metric('Заданий смены',d.tasks.length),metric('Принято',d.tasks.filter(t=>t.status==='Принято').length),metric('На проверке',d.tasks.filter(t=>t.status==='Отчёт отправлен').length),metric('Не сдано / доработка',d.tasks.filter(t=>!['Принято','Отчёт отправлен'].includes(t.status)).length));app.append(grid);
   app.append(el('p','Статусы актуальны на момент обновления. «Отчёт отправлен» означает, что проверка руководителем ещё не завершена.','notice'));
   const zones={};d.tasks.forEach(t=>{const z=t.zone||'Без зоны';(zones[z]??=[]).push(t);});const grid2=el('div',undefined,'admin-grid');
   Object.entries(zones).forEach(([zone,list])=>{const c=el('section',undefined,'card');c.append(el('h2',zone),el('p',list.filter(t=>t.status==='Принято').length+' принято из '+list.length),button('Посмотреть задания',()=>{adminZone=zone;adminTab='tasks';renderCabinet();}));grid2.append(c);});app.append(grid2);
@@ -178,7 +178,9 @@ function editRule(entry){
  field('deadline','Срок: Начало смены / Конец смены / ЧЧ:ММ',t.deadline||'Конец смены');field('photoCount','Обязательных фото (0–6)',photoDefault(t));field('days','Интервал дней',t.days||0);field('anchor','Дата начала цикла',t.anchor||'');
  if(t.id==='CLN-012'){field('keyboardShifts','Цикл клавиатур: 2 или 3 смены',t.keyboardShifts||2);app.append(el('p','Уже назначенные клавиатуры сохраняют срок. Новый цикл применяется к следующим заданиям.','muted'));}
  field('steps','Подпункты — по одному на строку',t.steps.join('\n'));field('standard','Как должен выглядеть результат',t.standard||'');field('note','Подсказка сотруднику',t.note||'');app.append(form);
- app.append(button('Сохранить со следующей смены',async()=>{const input=Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value]));input.active=input.active==='Включено';input.steps=input.steps.split('\n').map(s=>s.trim()).filter(Boolean);const result=await rpc('adminSave',{id:t.id,revision:entry.revision,effectiveAt:adminCatalog.effectiveAt,task:input});adminCatalog=await rpc('adminCatalog');renderCabinet();message('Сохранено. Вступит в силу '+when(result.effectiveAt));},'primary'));
+ function readForm(){const input=Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value]));input.active=input.active==='Включено';input.steps=input.steps.split('\n').map(s=>s.trim()).filter(Boolean);return input;}
+ const estimate=el('div',undefined,'notice');estimate.hidden=true;app.append(button('Посчитать нагрузку до сохранения',async()=>{const result=await rpc('adminPreview',{id:t.id,task:readForm()});estimate.hidden=false;estimate.textContent=result.map(p=>{const item=p.entries.find(x=>x.id===t.id);return p.shift.name+' '+when(p.shift.start)+': '+p.count+' плановых проверок всего; это задание: '+(item?(item.count===null?item.note:item.count):'отключено');}).join(' · ');}),estimate);
+ app.append(button('Сохранить со следующей смены',async()=>{const input=readForm();const result=await rpc('adminSave',{id:t.id,revision:entry.revision,effectiveAt:adminCatalog.effectiveAt,task:input});adminCatalog=await rpc('adminCatalog');renderCabinet();message('Сохранено. Вступит в силу '+when(result.effectiveAt));},'primary'));
 }
 
 action(refresh);
