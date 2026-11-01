@@ -37,7 +37,8 @@ function stopCamera(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=n
 async function refresh(){stopCamera();state=await rpc('state');document.querySelector('#identity').textContent=state.user.name+' · '+state.shift.name+' '+when(state.shift.start);if(state.user.role==='owner'&&cabinet){await openCabinet();return;}renderList();}
 function renderList(){
  selected=null;capture=null;app.replaceChildren();if(state.user.role==='owner')app.append(button('Кабинет руководителя',openCabinet,'primary'));
- app.append(button('Мои баллы · принять смену',showMyPoints));
+ renderShiftStart();
+ app.append(button('Мои баллы за смену',showMyPoints));
  const nav=el('nav');[['now','Сейчас'],['late','Просрочено'],['history','История']].concat(state.user.role==='owner'?[['review','На проверке']]:[]).forEach(([key,label])=>nav.append(button(label,async()=>{filter=key;renderList();},filter===key?'active':'')));app.append(nav);
  if(filter==='history'||filter==='review'){
   const reports=state.reports.filter(r=>filter!=='review'||r.status==='Отчёт отправлен');
@@ -185,6 +186,17 @@ function editRule(entry){
  app.append(button('Сохранить со следующей смены',async()=>{const input=readForm();const result=await rpc('adminSave',{id:t.id,revision:entry.revision,effectiveAt:adminCatalog.effectiveAt,task:input});adminCatalog=await rpc('adminCatalog');renderCabinet();message('Сохранено. Вступит в силу '+when(result.effectiveAt));},'primary'));
 }
 
+async function beginShift(){
+ try{await rpc('claimShift',{start:state.shift.start});}catch(e){await refresh();throw e;}
+ await refresh();message('Смена закреплена за вами. Уведомление руководителю поставлено в отправку.');
+}
+function renderShiftStart(){
+ const a=state.assignment,card=el('section',undefined,'card');
+ card.append(el('h2',a?(a.user===state.user.id?'Вы отвечаете за эту смену':'Смена уже начата'):'Начало смены'));
+ if(a)card.append(el('p','Ответственный: '+a.name+(a.username?' · @'+a.username:'')));
+ else{card.append(el('p','Нажмите, когда приступаете к работе. Первому нажавшему назначаются ответственность и баллы за эту смену.','muted'),button('Начать смену',beginShift,'primary'));}
+ app.append(card);
+}
 let pointData;
 function appendPointRows(score,container){
  const grid=el('div',undefined,'admin-grid');score.rows.forEach(r=>{const c=el('section',undefined,'card');c.append(el('strong',(r.points>0?'+':'')+r.points+' баллов'),el('h2',r.title),el('p',r.object),el('p',r.status,'muted'));if(r.performer)c.append(el('small','Отчёт: '+r.performer));grid.append(c);});container.append(grid);
@@ -194,7 +206,7 @@ async function showMyPoints(){
  const score=await rpc('myPoints');app.replaceChildren();app.append(button('← К заданиям',()=>renderList()),el('h2','Мои баллы за смену'));
  app.append(el('p',score.assignment?'Ответственный: '+score.assignment.name:'Ответственный пока не назначен'));
  if(score.reason)app.append(el('p',score.reason,'notice'));
- if(!score.assignment)app.append(button('Принимаю ответственность за текущую смену',async()=>{await rpc('claimShift');await showMyPoints();},'primary'));
+ if(!score.assignment)app.append(button('Начать смену',beginShift,'primary'));
  if(score.total!==null&&score.total!==undefined){app.append(metric('Текущий результат',score.total),el('p','На проверке: '+score.pending+'. Баллы изменятся после решения руководителя.','notice'));appendPointRows(score,app);}
 }
 function renderPoints(){
