@@ -22,7 +22,7 @@ async function rpc(op,p={}){
  if(window.google?.script?.run)return new Promise((resolve,reject)=>google.script.run.withSuccessHandler(resolve).withFailureHandler(e=>reject(new Error(e.message||'Нет связи с сервером'))).api(op,ticket,p));
  if(!ticket||ticket.includes('<?'))throw new Error('Откройте /start в @Chek_Baza_bot и нажмите «Открыть задания».');
  let result;
- if(['state','photo','adminState','adminCatalog'].includes(op))result=await jsonp({op,payload:JSON.stringify(p)});
+ if(['state','photo','adminState','adminCatalog','adminPoints','myPoints'].includes(op))result=await jsonp({op,payload:JSON.stringify(p)});
  else{
   const request=crypto.randomUUID();
   await fetch(ENDPOINT,{method:'POST',mode:'no-cors',credentials:'omit',redirect:'follow',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({op,ticket,payload:p,request})});
@@ -37,6 +37,7 @@ function stopCamera(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=n
 async function refresh(){stopCamera();state=await rpc('state');document.querySelector('#identity').textContent=state.user.name+' · '+state.shift.name+' '+when(state.shift.start);if(state.user.role==='owner'&&cabinet){await openCabinet();return;}renderList();}
 function renderList(){
  selected=null;capture=null;app.replaceChildren();if(state.user.role==='owner')app.append(button('Кабинет руководителя',openCabinet,'primary'));
+ app.append(button('Мои баллы · принять смену',showMyPoints));
  const nav=el('nav');[['now','Сейчас'],['late','Просрочено'],['history','История']].concat(state.user.role==='owner'?[['review','На проверке']]:[]).forEach(([key,label])=>nav.append(button(label,async()=>{filter=key;renderList();},filter===key?'active':'')));app.append(nav);
  if(filter==='history'||filter==='review'){
   const reports=state.reports.filter(r=>filter!=='review'||r.status==='Отчёт отправлен');
@@ -113,7 +114,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera(
 let cabinet=true,adminTab='overview',adminData,adminStart,adminCatalog,adminEmployee='',adminStatus='',adminZone='',adminPage=0;
 async function openCabinet(){
  stopCamera();cabinet=true;document.body.classList.add('cabinet');document.querySelector('h1').textContent='Кабинет руководителя';
- adminData=await rpc('adminState',adminStart===undefined?{}:{start:adminStart});adminStart=adminData.shift.start;renderCabinet();
+ adminData=await rpc('adminState',adminStart===undefined?{}:{start:adminStart});adminStart=adminData.shift.start;if(adminTab==='points')pointData=await rpc('adminPoints',{start:adminStart});renderCabinet();
 }
 function ownerHeader(){
  app.replaceChildren();const top=el('div',undefined,'toolbar');
@@ -121,7 +122,7 @@ function ownerHeader(){
  app.append(el('h2',adminData.shift.name+' · '+when(adminStart)+' — '+when(adminData.shift.end)),el('p','Время Владивостока. Ночная смена относится к дате её начала.','muted'));
  const jump=el('div',undefined,'toolbar'),day=el('input'),type=el('select');day.type='date';day.value=adminData.shift.day;day.setAttribute('aria-label','Дата смены');
  ['Дневная','Ночная'].forEach(x=>{const o=el('option',x);type.append(o);});type.value=adminData.shift.name;type.setAttribute('aria-label','Тип смены');jump.append(day,type,button('Показать',async()=>{const target=Date.parse(day.value+'T'+(type.value==='Дневная'?'10':'22')+':00:00+10:00');if(!Number.isFinite(target))throw new Error('Выберите дату');adminStart=target;adminPage=0;await openCabinet();}));app.append(jump);
- const nav=el('nav');[['overview','Обзор'],['photos','Фотоотчёты'],['tasks','Задания смены'],['carry','Переходящие'],['editor','Редактор']].forEach(([key,label])=>nav.append(button(label,async()=>{adminTab=key;adminPage=0;if(key==='editor')adminCatalog=await rpc('adminCatalog');renderCabinet();},adminTab===key?'active':'')));app.append(nav);
+ const nav=el('nav');[['overview','Обзор'],['photos','Фотоотчёты'],['tasks','Задания смены'],['carry','Переходящие'],['editor','Редактор'],['points','Баллы']].forEach(([key,label])=>nav.append(button(label,async()=>{adminTab=key;adminPage=0;if(key==='editor')adminCatalog=await rpc('adminCatalog');if(key==='points')pointData=await rpc('adminPoints',{start:adminStart});renderCabinet();},adminTab===key?'active':'')));app.append(nav);
 }
 function metric(label,value){const c=el('section',undefined,'card metric');c.append(el('strong',String(value)),el('span',label));return c;}
 function renderCabinet(){
@@ -135,6 +136,7 @@ function renderCabinet(){
   d.problems.forEach(p=>{const c=el('section',undefined,'card');c.append(el('strong',p.name+' · '+when(p.at)),el('p',p.note));app.append(c);});
  }else if(adminTab==='photos')renderAdminPhotos();
  else if(adminTab==='editor')renderEditor();
+ else if(adminTab==='points')renderPoints();
  else renderAdminTasks(adminTab==='carry'?d.carried:d.tasks);
  const bottom=el('div',undefined,'toolbar');bottom.append(button('Обновить',openCabinet),button('Excel этой смены в группу',async()=>{await rpc('adminExport',{start:adminStart});message('Excel поставлен в очередь отправки в группу.');}),button('Режим сотрудника',()=>{cabinet=false;document.body.classList.remove('cabinet');document.querySelector('h1').textContent='Моя смена';renderList();}));app.append(bottom);
 }
@@ -181,6 +183,40 @@ function editRule(entry){
  function readForm(){const input=Object.fromEntries(Object.entries(fields).map(([k,v])=>[k,v.value]));input.active=input.active==='Включено';input.steps=input.steps.split('\n').map(s=>s.trim()).filter(Boolean);return input;}
  const estimate=el('div',undefined,'notice');estimate.hidden=true;app.append(button('Посчитать нагрузку до сохранения',async()=>{const result=await rpc('adminPreview',{id:t.id,task:readForm()});estimate.hidden=false;estimate.textContent=result.map(p=>{const item=p.entries.find(x=>x.id===t.id);return p.shift.name+' '+when(p.shift.start)+': '+p.count+' плановых проверок всего; это задание: '+(item?(item.count===null?item.note:item.count):'отключено');}).join(' · ');}),estimate);
  app.append(button('Сохранить со следующей смены',async()=>{const input=readForm();const result=await rpc('adminSave',{id:t.id,revision:entry.revision,effectiveAt:adminCatalog.effectiveAt,task:input});adminCatalog=await rpc('adminCatalog');renderCabinet();message('Сохранено. Вступит в силу '+when(result.effectiveAt));},'primary'));
+}
+
+let pointData;
+function appendPointRows(score,container){
+ const grid=el('div',undefined,'admin-grid');score.rows.forEach(r=>{const c=el('section',undefined,'card');c.append(el('strong',(r.points>0?'+':'')+r.points+' баллов'),el('h2',r.title),el('p',r.object),el('p',r.status,'muted'));if(r.performer)c.append(el('small','Отчёт: '+r.performer));grid.append(c);});container.append(grid);
+ score.adjustments?.forEach(a=>{const c=el('section',undefined,'card');c.append(el('strong',(a.amount>0?'+':'')+a.amount+' · корректировка'),el('p',a.reason),el('small',when(a.at)));container.append(c);});
+}
+async function showMyPoints(){
+ const score=await rpc('myPoints');app.replaceChildren();app.append(button('← К заданиям',()=>renderList()),el('h2','Мои баллы за смену'));
+ app.append(el('p',score.assignment?'Ответственный: '+score.assignment.name:'Ответственный пока не назначен'));
+ if(score.reason)app.append(el('p',score.reason,'notice'));
+ if(!score.assignment)app.append(button('Принимаю ответственность за текущую смену',async()=>{await rpc('claimShift');await showMyPoints();},'primary'));
+ if(score.total!==null&&score.total!==undefined){app.append(metric('Текущий результат',score.total),el('p','На проверке: '+score.pending+'. Баллы изменятся после решения руководителя.','notice'));appendPointRows(score,app);}
+}
+function renderPoints(){
+ if(!pointData){app.append(button('Загрузить баллы',async()=>{pointData=await rpc('adminPoints',{start:adminStart});renderCabinet();}));return;}
+ const d=pointData,s=d.score,st=d.shift.start;
+ app.append(el('h2','Учёт баллов: '+d.shift.name+' · '+when(st)),el('p','Один ответственный за смену. Баллы — основание для вашего решения о премии; выплаты автоматически не рассчитываются.','notice'));
+ app.append(button('Назначить ответственного на следующую смену',async()=>{pointData=await rpc('adminPoints',{start:d.nextStart});renderCabinet();}));
+ if(s.reason)app.append(el('p',s.reason,'notice'));
+ if(s.enabledAt)app.append(el('p','Начало учёта: '+when(s.enabledAt)+'. Более ранние смены не штрафуются.','muted'));
+ if(s.assignment)app.append(el('h2','Ответственный: '+s.assignment.name));
+ if(s.total!==null){const totals=el('div',undefined,'metrics');totals.append(metric('Итого баллов',s.total),metric('За задания',s.base),metric('Отчётов на проверке',s.pending));app.append(totals);}
+ const assignment=el('section',undefined,'card'),person=el('select'),reason=el('input');
+ d.staff.forEach(u=>{const o=el('option',u.name);o.value=u.id;person.append(o);});if(s.assignment)person.value=s.assignment.user;person.setAttribute('aria-label','Ответственный сотрудник');reason.placeholder='Причина замены или назначения за прошедшую смену';
+ assignment.append(el('h2','Ответственный за эту смену'),person,reason,button('Сохранить ответственного',async()=>{await rpc('adminAssign',{start:st,user:person.value,reason:reason.value});pointData=await rpc('adminPoints',{start:st});renderCabinet();message('Ответственный сохранён.');}));app.append(assignment);
+ const rules=el('details',undefined,'card');rules.append(el('summary','Настроить стоимость заданий · со следующей смены'));const inputs={};
+ [['regular','Принятое плановое задание'],['extra','Принятое дополнительное'],['penalty','Списание за невыполненное плановое']].forEach(([key,label])=>{const wrap=el('label',label),input=el('input');input.type='number';input.min=0;input.max=1000;input.value=d.nextRules[key];inputs[key]=input;wrap.append(input);rules.append(wrap);});rules.append(el('p','Новые значения действуют с '+when(d.rulesAt)+'. Ожидание проверки и невыполненные допзадания — без штрафа.','muted'),button('Сохранить правила баллов',async()=>{await rpc('adminPointRules',Object.fromEntries(Object.entries(inputs).map(([k,v])=>[k,v.value])));pointData=await rpc('adminPoints',{start:st});renderCabinet();message('Правила баллов сохранены со следующей смены.');}));app.append(rules);
+ if(s.assignment){
+  const correction=el('details',undefined,'card');correction.append(el('summary','Корректировка баллов с объяснением'));const amount=el('input'),why=el('textarea');amount.type='number';amount.placeholder='Например: 10 или -10';why.placeholder='Причина обязательна: замена, технический сбой, согласованное исключение';correction.append(amount,why,button('Записать корректировку',async()=>{await rpc('adminPointAdjustment',{start:st,amount:amount.value,reason:why.value});pointData=await rpc('adminPoints',{start:st});renderCabinet();message('Корректировка записана в журнал.');}));app.append(correction);
+  if(st===adminData.latest){const extra=el('details',undefined,'card');extra.append(el('summary','Согласовать дополнительное задание'));const title=el('input'),steps=el('textarea'),photos=el('input'),standard=el('textarea');title.placeholder='Что сделать';steps.placeholder='Подпункты — по одному на строке';photos.type='number';photos.min=0;photos.max=6;photos.value=1;standard.placeholder='Ожидаемый результат';extra.append(title,steps,el('label','Обязательных фото'),photos,standard,button('Выдать допзадание до конца смены',async()=>{await rpc('adminExtraTask',{start:st,title:title.value,steps:steps.value,photos:photos.value,standard:standard.value});await openCabinet();message('Допзадание выдано. Баллы начислятся после принятия отчёта.');},'primary'));app.append(extra);}
+ }
+ app.append(el('h2','За что начислены и сняты баллы'));appendPointRows(s,app);
+ if(!s.rows.length)app.append(el('p','Начислений по заданиям пока нет.','muted'));
 }
 
 action(refresh);
