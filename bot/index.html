@@ -2,7 +2,7 @@
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BAZA — контроль чистоты</title><meta name="referrer" content="no-referrer"><base target="_top">
 <style>
 :root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif;background:#12141c;color:#f2f4fa}*{box-sizing:border-box}body{margin:0;padding:20px 16px 90px;max-width:660px;margin-inline:auto}h1{font-size:28px;margin:8px 0}h2{font-size:20px}p{line-height:1.5}small,.muted{color:#a8afc4}.brand{font-size:12px;letter-spacing:.2em;color:#8fb5ff}.card{background:#202434;border:1px solid #30364a;border-radius:22px;padding:18px;margin:12px 0}.row{display:flex;justify-content:space-between;align-items:center;gap:12px}.badge{border-radius:20px;padding:5px 9px;font-size:12px;background:#313951;white-space:nowrap}.late{color:#ffbd93}.good{color:#9cdeb5}button,select,textarea{font:inherit;width:100%;border:0;border-radius:16px;padding:15px;background:#303a57;color:#fff}button{cursor:pointer;min-height:50px;margin-top:10px;text-align:left}button.primary{background:#347cf4;text-align:center;font-weight:650}button.danger{background:#62383c}button:disabled{opacity:.45;cursor:wait}nav{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0}nav button{width:auto;flex:1;font-size:14px;padding:12px;text-align:center}nav button.active{background:#347cf4}label.check{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:1px solid #343a4c;line-height:1.45}input[type=checkbox]{width:23px;height:23px;flex-shrink:0;accent-color:#4089ff}textarea{min-height:88px;resize:vertical;margin-top:12px}video{width:100%;border-radius:18px;background:#080a10;max-height:55vh}img{width:100%;border-radius:14px;margin-top:10px}.notice{border-left:3px solid #74a6ff;padding:12px;background:#252c40;border-radius:6px;line-height:1.5}#message{position:sticky;top:8px;z-index:5;padding:12px;background:#56383b;border-radius:12px;white-space:pre-wrap}#message:empty{display:none}.shotgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.shotgrid img.uploading{opacity:.45}.shotgrid img.failed{outline:3px solid #e5484d;opacity:.6}.toolbar{display:flex;gap:8px}.toolbar button{flex:1;text-align:center}.empty{padding:35px 15px;text-align:center;color:#a8afc4}
-body.cabinet{max-width:1280px}.admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}.metric{display:flex;flex-direction:column;gap:8px}.metric strong{font-size:36px}.metric span{color:#a8afc4}.filters,.editor-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px}input:not([type=checkbox]):not([type=hidden]){font:inherit;width:100%;padding:14px;border:1px solid #39445b;border-radius:12px;background:#202434;color:#fff}label select,label input,label textarea{display:block;margin-top:8px}label{line-height:1.5}summary{cursor:pointer;padding:12px 0}.cabinet .toolbar{flex-wrap:wrap}.toolbar>input,.toolbar>select{flex:1;min-width:140px}.admin-grid img{object-fit:contain;max-height:80vh}.editor-form textarea{min-height:140px}
+progress{width:100%;height:12px;accent-color:#65cbac}.shift-progress strong{font-size:22px}.super-clean{background:linear-gradient(130deg,#262840,#223544);border-color:#4b5274}.photo-placeholder{min-height:130px;display:grid;place-items:center;border:1px dashed #4b5274;border-radius:14px;padding:14px}.loading-note{color:#a8afc4;font-size:14px}body.cabinet{max-width:1280px}.admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}.metric{display:flex;flex-direction:column;gap:8px}.metric strong{font-size:36px}.metric span{color:#a8afc4}.filters,.editor-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px}input:not([type=checkbox]):not([type=hidden]){font:inherit;width:100%;padding:14px;border:1px solid #39445b;border-radius:12px;background:#202434;color:#fff}label select,label input,label textarea{display:block;margin-top:8px}label{line-height:1.5}summary{cursor:pointer;padding:12px 0}.cabinet .toolbar{flex-wrap:wrap}.toolbar>input,.toolbar>select{flex:1;min-width:140px}.admin-grid img{object-fit:contain;max-height:80vh}.editor-form textarea{min-height:140px}
 </style></head><body>
 <input id="ticket" type="hidden" value="">
 <div class="brand">BAZA / КОНТРОЛЬ ЧИСТОТЫ</div><h1>Моя смена</h1><div id="identity" class="muted"></div><div id="message" role="alert" aria-live="polite"></div><main id="app"><p>Загружаем задания…</p></main>
@@ -22,7 +22,7 @@ async function rpc(op,p={}){
  if(window.google?.script?.run)return new Promise((resolve,reject)=>google.script.run.withSuccessHandler(resolve).withFailureHandler(e=>reject(new Error(e.message||'Нет связи с сервером'))).api(op,ticket,p));
  if(!ticket||ticket.includes('<?'))throw new Error('Откройте /start в @Chek_Baza_bot и нажмите «Открыть задания».');
  let result;
- if(['state','photo','adminState','adminCatalog','adminPoints','myPoints'].includes(op))result=await jsonp({op,payload:JSON.stringify(p)});
+ if(['state','photo','adminState','adminCatalog','adminPoints','myPoints','bootstrap'].includes(op))result=await jsonp({op,payload:JSON.stringify(p)});
  else{
   const request=crypto.randomUUID();
   await fetch(ENDPOINT,{method:'POST',mode:'no-cors',credentials:'omit',redirect:'follow',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({op,ticket,payload:p,request})});
@@ -31,28 +31,56 @@ async function rpc(op,p={}){
  if(result?.pending)throw new Error('Подтверждение задерживается. Обновите задания перед повторной отправкой.');
  if(!result?.ok)throw new Error(result?.error||'Ошибка сервера');return result.value;
 }
-async function action(fn){if(busy)return;busy=true;message();try{await fn();}catch(e){message(e.message);}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);}}
+async function action(fn){if(busy)return;busy=true;message();try{await fn();}catch(e){message(e.message);if(!state){app.replaceChildren(el('p','Не удалось загрузить смену.','notice'),button('Повторить загрузку',refresh,'primary'));}}finally{busy=false;document.querySelectorAll('button').forEach(b=>b.disabled=false);}}
 function button(text,fn,cls=''){const b=el('button',text,cls);b.onclick=()=>{if(busy)return;b.disabled=true;action(fn);};return b;}
 function stopCamera(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;}
-async function refresh(){stopCamera();state=await rpc('state');document.querySelector('#identity').textContent=state.user.name+' · '+state.shift.name+' '+when(state.shift.start);if(state.user.role==='owner'&&cabinet){await openCabinet();return;}renderList();}
+async function refresh(){stopCamera();if(state?.user.role==='owner'&&cabinet){await openCabinet();return;}if(!state){const data=await rpc('bootstrap');state=data.state||{user:data.user};if(data.admin){adminData=data.admin;adminStart=adminData.shift.start;cabinet=true;document.body.classList.add('cabinet');document.querySelector('h1').textContent='Кабинет руководителя';document.querySelector('#identity').textContent=state.user.name;renderCabinet();return;}}else state=await rpc('state');document.querySelector('#identity').textContent=state.user.name+' · '+state.shift.name+' '+when(state.shift.start);if(state.user.role==='owner'&&cabinet){await openCabinet();return;}renderList();}
+function taskCard(t){
+ const c=el('section',undefined,'card'),future=t.open>state.now,row=el('div',undefined,'row');
+ row.append(el('strong',t.object),el('span',future?'С '+when(t.open):'До '+when(t.due),'badge '+(!future&&t.due<state.now?'late':'')));
+ c.append(row,el('h2',t.title),el('p',t.steps.length+' пунктов · '+t.photoCount+' фото','muted'));
+ if(t.due<state.now)c.append(el('p','Срок прошёл — выполните при первой возможности','late'));
+ if(future)c.append(el('p','Проверка откроется в указанное время.','muted'));else c.append(button('Выполнить →',()=>showTask(t),'primary'));
+ return c;
+}
 function renderList(){
- selected=null;capture=null;app.replaceChildren();if(state.user.role==='owner')app.append(button('Кабинет руководителя',openCabinet,'primary'));
+ selected=null;capture=null;app.replaceChildren();document.querySelector('h1').textContent='Моя смена';
+ if(state.user.role==='owner')app.append(button('Кабинет руководителя',openCabinet));
  renderShiftStart();
- app.append(button('Мои баллы за смену',showMyPoints));
- const nav=el('nav');[['now','Сейчас'],['late','Просрочено'],['history','История']].concat(state.user.role==='owner'?[['review','На проверке']]:[]).forEach(([key,label])=>nav.append(button(label,async()=>{filter=key;renderList();},filter===key?'active':'')));app.append(nav);
+ const nav=el('nav');[['now','Моя смена'],['late','Прошлые'],['history','Отчёты']].concat(state.user.role==='owner'?[['review','На проверке']]:[]).forEach(([key,label])=>nav.append(button(label,()=>{filter=key;renderList();},filter===key?'active':'')));app.append(nav);
  if(filter==='history'||filter==='review'){
   const reports=state.reports.filter(r=>filter!=='review'||r.status==='Отчёт отправлен');
-  reports.forEach(r=>{const card=el('section',undefined,'card');card.append(el('strong',r.title+' · '+r.object),el('p',r.name+' · '+when(r.at)),el('span',r.status,'badge'));card.append(button('Открыть отчёт',()=>showReport(r)));app.append(card);});
+  reports.forEach(r=>{const c=el('section',undefined,'card');c.append(el('h2',r.title+' · '+r.object),el('p',r.name+' · '+when(r.at)),el('span',r.status,'badge'),button('Посмотреть фотоотчёт',()=>showReport(r)));app.append(c);});
   if(!reports.length)app.append(el('p','Отчётов пока нет','empty'));
  }else{
-  const tasks=state.tasks.filter(t=>!['Принято','Отчёт отправлен'].includes(t.status)&&(filter!=='late'||t.due<state.now));
-  tasks.sort((a,b)=>a.due-b.due);
-  app.append(el('p','Открыто: '+tasks.length+' · время Владивостока','muted'));
-  tasks.forEach(t=>{const c=el('section',undefined,'card');const row=el('div',undefined,'row');row.append(el('strong',t.object),el('span',t.due<state.now?'Просрочено':when(t.due),'badge '+(t.due<state.now?'late':'')));c.append(row,el('h2',t.title),el('small',t.status+' · '+t.steps.length+' пунктов · фото: '+t.photoCount));c.append(button('Открыть задание',()=>showTask(t),'primary'));app.append(c);});
-  if(!tasks.length)app.append(el('p','Все текущие задания отправлены или приняты','empty'));
-  if(filter==='now')app.append(button('После гостя · новое задание',showEvent));
+  const unfinished=t=>!['Принято','Отчёт отправлен','Снято с плана'].includes(t.status);
+  const current=state.tasks.filter(t=>t.shiftStart===state.shift.start),todo=current.filter(unfinished).sort((a,b)=>a.due-b.due);
+  if(filter==='late'){
+   const old=state.tasks.filter(t=>t.shiftStart<state.shift.start&&unfinished(t)).sort((a,b)=>b.due-a.due);
+   app.append(el('h2','Передано из прошлых смен'),el('p','Это отдельный список. Сначала выполните обязательные проверки своей смены.','notice'));
+   old.slice(0,30).forEach(t=>app.append(taskCard(t)));if(state.carriedCount>30)app.append(el('p','Показаны 30 последних из '+state.carriedCount+'. Полная история доступна руководителю.','muted'));if(!old.length)app.append(el('p','Переходящих заданий нет','empty'));
+  }else{
+   const submitted=current.filter(t=>['Принято','Отчёт отправлен'].includes(t.status)).length;
+   const progress=el('section',undefined,'card shift-progress');progress.append(el('strong','Сдано '+submitted+' из '+current.length),el('p','До конца смены: '+when(state.shift.end),'muted'));const bar=el('progress');bar.max=current.length||1;bar.value=submitted;progress.append(bar);app.append(progress);
+   if(!state.assignment)app.append(el('p','1. Начните смену выше. 2. Выполните первые проверки. 3. Отметьте все пункты и отправьте свежие фото.','notice'));
+   const open=todo.filter(t=>t.open<=state.now),first=open.filter(t=>t.due<=state.now+3600000||(['CLN-006','CLN-017'].includes(t.taskId)&&t.open===state.shift.start));
+   app.append(el('h2','Сделать сначала'),el('p','Ближайшие сроки, санузел и холодильники при начале смены.','muted'));
+   (first.length?first:open.slice(0,1)).forEach(t=>app.append(taskCard(t)));
+   if(!open.length)app.append(el('p',todo.length?'Сейчас всё сдано. Следующие проверки — ниже.':'Все задания смены отправлены на проверку.','good'));
+   const shown=new Set((first.length?first:open.slice(0,1)).map(t=>t.id)),rest=todo.filter(t=>!shown.has(t.id));
+   if(rest.length){const more=el('details',undefined,'card');more.append(el('summary','Остальное на смену · '+rest.length));rest.forEach(t=>more.append(taskCard(t)));app.append(more);}
+   app.append(button('После гостя · убрать место',showEvent),button('Мои баллы за смену',showMyPoints));
+   renderSuperClean();
+  }
  }
- app.append(button('Обновить',refresh));
+ app.append(button('Обновить задания',refresh));
+}
+function renderSuperClean(){
+ const c=el('section',undefined,'card super-clean'),existing=state.tasks.find(t=>t.roulette&&t.shiftStart===state.shift.start);
+ c.append(el('span','ДОБРОВОЛЬНЫЙ БОНУС','brand'),el('h2','🎲 Рулетка суперуборки'),el('p','Один случайный участок за смену. +'+state.extraPoints+' баллов после принятия фотоотчёта. За невыполнение штрафа нет.','muted'));
+ if(existing){c.append(el('p',existing.title),el('p',existing.status,'badge'));if(!['Принято','Отчёт отправлен'].includes(existing.status))c.append(button('Открыть суперуборку',()=>showTask(existing)));}
+ else if(state.assignment?.user===state.user.id)c.append(button('Выбрать суперуборку',async()=>{message('Выбираем участок…');const task=await rpc('superClean',{start:state.shift.start});state.tasks.push(task);message();await showTask(task);},'primary'));
+ else c.append(el('p','Доступна сотруднику, который начал смену.','muted'));app.append(c);
 }
 async function showTask(t){
  stopCamera();selected=t;capture=null;photoCount=0;uploads=Promise.resolve();pending=0;app.replaceChildren();
@@ -89,7 +117,7 @@ async function openCamera(){
  const video=el('video');video.autoplay=true;video.muted=true;video.playsInline=true;video.srcObject=stream;area.append(video);await video.play();
  area.append(button('Сделать снимок',async()=>{
    if(!video.videoWidth)throw new Error('Камера ещё запускается');
-   const canvas=document.createElement('canvas'),ratio=Math.min(1,1280/video.videoWidth);canvas.width=Math.round(video.videoWidth*ratio);canvas.height=Math.round(video.videoHeight*ratio);canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+   const canvas=document.createElement('canvas'),ratio=Math.min(1,1280/Math.max(video.videoWidth,video.videoHeight));canvas.width=Math.round(video.videoWidth*ratio);canvas.height=Math.round(video.videoHeight*ratio);canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
    // Upload in the background so the next shot can be taken right away; uploads stay in order.
    const image=canvas.toDataURL('image/jpeg',.72),cap=capture.id,task=selected;
    const preview=el('img','','uploading');preview.src=image;preview.alt='Снимок загружается';document.querySelector('#shots').append(preview);pending++;showProgress();
@@ -97,10 +125,21 @@ async function openCamera(){
  },'primary'));
  area.append(button('Выключить камеру',async()=>{stopCamera();area.replaceChildren();}));
 }
+const photoMemo=new Map();
+async function reportPhoto(report,index){
+ const key=report+':'+index;if(photoMemo.has(key))return photoMemo.get(key);
+ const image=await rpc('photo',{report,index});photoMemo.set(key,image);if(photoMemo.size>18)photoMemo.delete(photoMemo.keys().next().value);return image;
+}
+function loadReportPhotos(r,container){
+ let next=0;const slots=r.photos.map((_,i)=>{const c=el('section',undefined,'photo-placeholder');c.append(el('p','Загружается фото '+(i+1)+'…','loading-note'));container.append(c);return c;});
+ async function load(i){const c=slots[i];try{const src=await reportPhoto(r.id,i);if(!c.isConnected)return;const img=el('img');img.alt=r.object+' · фото '+(i+1);img.src=src;c.className='';c.replaceChildren(img);}catch(e){if(!c.isConnected)return;c.replaceChildren(el('p','Не загрузилось фото '+(i+1)),button('Повторить загрузку',()=>load(i)));}}
+ async function worker(){while(next<slots.length&&container.isConnected){const i=next++;await load(i);}}
+ void worker();void worker();
+}
 async function showReport(r){
  app.replaceChildren();app.append(button('‹ Назад',async()=>renderList()),el('h2',r.title),el('p',r.object+' · '+r.name+' · '+when(r.at)),el('p',r.note||'Без комментария'));
  app.append(el('p',r.status,'badge'));
- for(let i=0;i<r.photos.length;i++){const img=el('img');img.alt='Фотоотчёт '+(i+1);img.src=await rpc('photo',{report:r.id,index:i});app.append(img);}
+ const gallery=el('div',undefined,'shotgrid');app.append(gallery);loadReportPhotos(r,gallery);
  if(state.user.role==='owner'&&r.status==='Отчёт отправлен'){
    const note=el('textarea');note.placeholder='Что нужно исправить';app.append(note);
    for(const status of ['Принято','Нужна доработка'])app.append(button(status,async()=>{await rpc('review',{id:r.id,status,note:note.value});await refresh();},status==='Принято'?'primary':'danger'));
@@ -118,7 +157,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera(
 let cabinet=true,adminTab='overview',adminData,adminStart,adminCatalog,adminEmployee='',adminStatus='',adminZone='',adminPage=0;
 async function openCabinet(){
  stopCamera();cabinet=true;document.body.classList.add('cabinet');document.querySelector('h1').textContent='Кабинет руководителя';
- adminData=await rpc('adminState',adminStart===undefined?{}:{start:adminStart});adminStart=adminData.shift.start;if(adminTab==='points')pointData=await rpc('adminPoints',{start:adminStart});renderCabinet();
+ adminData=await rpc('adminState',{...(adminStart===undefined?{}:{start:adminStart}),includeCarried:adminTab==='carry'});adminStart=adminData.shift.start;if(adminTab==='points')pointData=await rpc('adminPoints',{start:adminStart});renderCabinet();
 }
 function ownerHeader(){
  app.replaceChildren();const top=el('div',undefined,'toolbar');
@@ -126,7 +165,7 @@ function ownerHeader(){
  app.append(el('h2',adminData.shift.name+' · '+when(adminStart)+' — '+when(adminData.shift.end)),el('p','Время Владивостока. Ночная смена относится к дате её начала.','muted'));
  const jump=el('div',undefined,'toolbar'),day=el('input'),type=el('select');day.type='date';day.value=adminData.shift.day;day.setAttribute('aria-label','Дата смены');
  ['Дневная','Ночная'].forEach(x=>{const o=el('option',x);type.append(o);});type.value=adminData.shift.name;type.setAttribute('aria-label','Тип смены');jump.append(day,type,button('Показать',async()=>{const target=Date.parse(day.value+'T'+(type.value==='Дневная'?'10':'22')+':00:00+10:00');if(!Number.isFinite(target))throw new Error('Выберите дату');adminStart=target;adminPage=0;await openCabinet();}));app.append(jump);
- const nav=el('nav');[['overview','Обзор'],['photos','Фотоотчёты'],['tasks','Задания смены'],['carry','Переходящие'],['editor','Редактор'],['points','Баллы']].forEach(([key,label])=>nav.append(button(label,async()=>{adminTab=key;adminPage=0;if(key==='editor')adminCatalog=await rpc('adminCatalog');if(key==='points')pointData=await rpc('adminPoints',{start:adminStart});renderCabinet();},adminTab===key?'active':'')));app.append(nav);
+ const nav=el('nav');[['overview','Обзор'],['photos','Фотоотчёты'],['tasks','Задания смены'],['carry','Переходящие'],['editor','Редактор'],['points','Баллы']].forEach(([key,label])=>nav.append(button(label,async()=>{adminTab=key;adminPage=0;if(key==='carry'){await openCabinet();return;}if(key==='editor')adminCatalog=await rpc('adminCatalog');if(key==='points')pointData=await rpc('adminPoints',{start:adminStart});renderCabinet();},adminTab===key?'active':'')));app.append(nav);
 }
 function metric(label,value){const c=el('section',undefined,'card metric');c.append(el('strong',String(value)),el('span',label));return c;}
 function renderCabinet(){
@@ -136,13 +175,13 @@ function renderCabinet(){
   app.append(el('p','Статусы актуальны на момент обновления. «Отчёт отправлен» означает, что проверка руководителем ещё не завершена.','notice'));
   const zones={};d.tasks.forEach(t=>{const z=t.zone||'Без зоны';(zones[z]??=[]).push(t);});const grid2=el('div',undefined,'admin-grid');
   Object.entries(zones).forEach(([zone,list])=>{const c=el('section',undefined,'card');c.append(el('h2',zone),el('p',list.filter(t=>t.status==='Принято').length+' принято из '+list.length),button('Посмотреть задания',()=>{adminZone=zone;adminTab='tasks';renderCabinet();}));grid2.append(c);});app.append(grid2);
-  app.append(el('p','Переходящих заданий: '+d.carried.length+' · Сообщений о проблемах: '+d.problems.length,'muted'));
+  app.append(el('p','Переходящих заданий: '+(d.carriedCount??d.carried.length)+' · Сообщений о проблемах: '+d.problems.length,'muted'));
   d.problems.forEach(p=>{const c=el('section',undefined,'card');c.append(el('strong',p.name+' · '+when(p.at)),el('p',p.note));app.append(c);});
  }else if(adminTab==='photos')renderAdminPhotos();
  else if(adminTab==='editor')renderEditor();
  else if(adminTab==='points')renderPoints();
  else renderAdminTasks(adminTab==='carry'?d.carried:d.tasks);
- const bottom=el('div',undefined,'toolbar');bottom.append(button('Обновить',openCabinet),button('Excel этой смены в группу',async()=>{await rpc('adminExport',{start:adminStart});message('Excel поставлен в очередь отправки в группу.');}),button('Режим сотрудника',()=>{cabinet=false;document.body.classList.remove('cabinet');document.querySelector('h1').textContent='Моя смена';renderList();}));app.append(bottom);
+ const bottom=el('div',undefined,'toolbar');bottom.append(button('Обновить',openCabinet),button('Excel этой смены в группу',async()=>{await rpc('adminExport',{start:adminStart});message('Excel поставлен в очередь отправки в группу.');}),button('Режим сотрудника',async()=>{cabinet=false;document.body.classList.remove('cabinet');await refresh();}));app.append(bottom);
 }
 function selectFilter(label,values,value,onchange){const wrap=el('label',label),select=el('select');['',...values].forEach(x=>{const o=el('option',x||'Все');o.value=x;select.append(o);});select.value=value;select.onchange=()=>{onchange(select.value);adminPage=0;renderCabinet();};wrap.append(select);return wrap;}
 function renderAdminTasks(list){
@@ -161,7 +200,7 @@ async function showAdminReport(r){
  app.replaceChildren();app.append(button('← К отчётам смены',()=>renderCabinet()),el('h2',r.title),el('p',r.object+' · '+r.name+' · '+when(r.at)),el('span',r.status,'badge'),el('p',r.note||'Без комментария'));
  const checks=el('section',undefined,'card');r.steps.forEach((s,i)=>checks.append(el('p',(r.checked[i]?'✓ ':'□ ')+s)));app.append(checks);
  const gallery=el('div',undefined,'admin-grid');app.append(gallery);
- for(let i=0;i<r.photos.length;i++){const img=el('img');img.alt=r.object+' · фото '+(i+1);img.src=await rpc('photo',{report:r.id,index:i});gallery.append(img);}
+ loadReportPhotos(r,gallery);
  if(!r.photos.length)app.append(el('p','Для этого задания фото не требовалось.','muted'));
  if(r.status==='Отчёт отправлен'){
   const note=el('textarea');note.placeholder='Комментарий к проверке; обязателен при возврате';note.maxLength=1000;app.append(note);
@@ -197,7 +236,7 @@ function renderShiftStart(){
  const a=state.assignment,card=el('section',undefined,'card');
  card.append(el('h2',a?(a.user===state.user.id?'Вы отвечаете за эту смену':'Смена уже начата'):'Начало смены'));
  if(a)card.append(el('p','Ответственный: '+a.name+(a.username?' · @'+a.username:'')));
- else{card.append(el('p','Нажмите, когда приступаете к работе. Первому нажавшему назначаются ответственность и баллы за эту смену.','muted'),button('Начать смену',beginShift,'primary'));}
+ else{card.append(el('p','Пришли на работу? Сначала начните смену — задания и баллы закрепятся за вами.','muted'),button('Начать смену',beginShift,'primary'));}
  app.append(card);
 }
 let pointData;
